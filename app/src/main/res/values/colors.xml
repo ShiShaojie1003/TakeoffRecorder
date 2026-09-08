@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="nz_background_light">#F9FAEF</color>
+    <color name="nz_background_dark">#12140E</color>
+    <color name="nz_primary_light">#4A672D</color>
+    <color name="nz_primary_dark">#AFD18C</color>
+    <color name="nz_primary_container_light">#CBEEA5</color>
+    <color name="nz_primary_container_dark">#334E17</color>
+
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+</resources>
