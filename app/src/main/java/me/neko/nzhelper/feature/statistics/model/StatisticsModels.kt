@@ -1,0 +1,148 @@
+package me.neko.nzhelper.feature.statistics.model
+
+import androidx.compose.runtime.Immutable
+import java.time.LocalDate
+
+enum class PeriodType { WEEK, MONTH, YEAR }
+
+@Immutable
+data class PeriodData(
+    val totalDurationSeconds: Int,
+    val avgDurationMinutes: Float,
+    val chartData: List<Pair<String, Float>>
+)
+
+@Immutable
+data class TotalStats(
+    val totalCount: Int,
+    val totalSeconds: Int,
+    val avgMinutes: Float,
+    val weekCount: Int,
+    val monthCount: Int,
+    val yearCount: Int
+)
+
+@Immutable
+data class LatestSessionInfo(
+    val displayDate: String,
+    val time: String,
+    val durationText: String,
+    val daysAgo: Long,
+    val detailText: String,
+    val isErrorState: Boolean
+)
+
+@Immutable
+data class TagStat(
+    val id: String,
+    val name: String,
+    val color: String,
+    val icon: String,
+    val count: Int
+)
+
+@Immutable
+data class PeriodOverview(
+    val periodLabel: String,
+    val count: Int,
+    val totalDurationSeconds: Int,
+    val longestDurationSeconds: Int,
+    val longestSessionDisplayDate: String,
+    val longestSessionEndTime: String,
+    val avgDurationSeconds: Int,
+    val avgRating: Float,
+    val climaxCount: Int,
+    val topTags: List<TagStat>,
+    val countComparison: String = "",
+    val durationComparison: String = "",
+    val avgDurationComparison: String = "",
+    val avgRatingComparison: String = "",
+    val climaxComparison: String = "",
+    val topTagsComparison: String = ""
+)
+
+@Immutable
+data class HeatmapData(
+    val weeks: List<HeatmapWeek>,
+    val monthLabels: List<Pair<Int, String>>,
+    val weekCount: Int,
+    val maxCount: Int,
+    val activeDays: Int,
+    val totalDays: Int
+)
+
+@Immutable
+data class HeatmapWeek(
+    val days: List<HeatmapDay>
+)
+
+@Immutable
+data class HeatmapDay(
+    val date: LocalDate,
+    val count: Int,
+    val totalDurationSeconds: Int,
+    val isFuture: Boolean
+)
+
+@Immutable
+data class ActivityTimeData(
+    val weekdayCounts: List<Int>,
+    val weekdayMax: Int,
+    val mostActiveWeekdayIndex: Int,
+    val hourCounts: List<Int>,
+    val hourMax: Int,
+    val mostActiveHour: Int
+)
+
+@Immutable
+data class MonthlyTrendItem(
+    val label: String,
+    val year: Int,
+    val month: Int,
+    val count: Int,
+    val isCurrent: Boolean
+)
+
+@Immutable
+data class MonthlyTrendData(
+    val items: List<MonthlyTrendItem>,
+    val predictedCount: Int,
+    val currentActual: Int,
+    val elapsedDays: Int,
+    val totalDaysInMonth: Int,
+    val last3MonthsAvg: Float
+)
+
+@Immutable
+data class TagTrendItem(
+    val id: String,
+    val name: String,
+    val color: String,
+    val icon: String,
+    val recentCount: Int,
+    val previousCount: Int,
+    val changePercent: Int,
+    val trend: TagTrendDirection
+)
+
+enum class TagTrendDirection { UP, DOWN, FLAT }
+
+@Immutable
+data class TagTrendData(
+    val items: List<TagTrendItem>,
+    val windowDays: Int = 30
+)
+
+@Immutable
+data class PeriodDashboard(
+    val type: PeriodType,
+    val label: String,
+    val count: Int,
+    val prevCount: Int,
+    val countChangePercent: Int,
+    val avgDurationSeconds: Int,
+    val totalDurationSeconds: Int,
+    val climaxRate: Int,
+    val climaxCount: Int,
+    val streakDays: Int
+)

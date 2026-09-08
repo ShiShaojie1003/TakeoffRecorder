@@ -1,0 +1,419 @@
+package me.neko.nzhelper.core.database
+
+import android.content.Context
+import android.net.Uri
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import me.neko.nzhelper.NzApplication
+import me.neko.nzhelper.core.database.entity.AiConfigEntity
+import me.neko.nzhelper.core.datastore.TagSettings
+import me.neko.nzhelper.core.model.BackupModules
+import me.neko.nzhelper.core.model.WebDavBackupPayload
+import me.neko.nzhelper.core.security.BackupCipher
+import me.neko.nzhelper.core.webdav.WebDavSettings
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import java.util.Date
+import java.util.Locale
+import java.util.concurrent.TimeUnit
+
+object BackupRepository {
+
+    private const val WEBDAV_BACKUP_FILENAME = "nzHelper_backup.nz"
+    private const val CONNECT_TIMEOUT = 15_000L
+    private const val READ_TIMEOUT = 30_000L
+
+    private val gson = NzApplication.gson
+
+    /** 全局复用的 OkHttpClient 单例，避免每次请求创建新实例 */
+    private val okHttpClient: OkHttpClient by lazy {
+        OkHttpClient.Builder()
+            .connectTimeout(CONNECT_TIMEOUT, TimeUnit.MILLISECONDS)
+            .readTimeout(READ_TIMEOUT, TimeUnit.MILLISECONDS)
+            .writeTimeout(READ_TIMEOUT, TimeUnit.MILLISECONDS)
+            .build()
+    }
+
+    private fun buildAuthHeader(context: Context): String? {
+        val user = WebDavSettings.getUsername(context)
+        val pass = WebDavSettings.getPassword(context)
+        if (user.isBlank()) return null
+        val credentials = "$user:$pass"
+        return "Basic " + android.util.Base64.encodeToString(
+            credentials.toByteArray(),
+            android.util.Base64.NO_WRAP
+        )
+    }
+
+    private fun encodeWebDavPath(path: String): String {
+        if (path.isBlank()) return ""
+        val normalized = if (path.startsWith("/")) path else "/$path"
+        return normalized.split("/").filter { it.isNotBlank() }.joinToString("/") { segment ->
+            java.net.URLEncoder.encode(segment, "UTF-8").replace("+", "%20")
+        }.let { if (it.isBlank()) "" else "/$it" }
+    }
+
+    private fun buildFullUrl(context: Context, fileName: String): String {
+        val baseUrl = WebDavSettings.getUrl(context).trimEnd('/')
+        val remotePath = WebDavSettings.getRemotePath(context).trimEnd('/')
+        val encodedPath = encodeWebDavPath(remotePath)
+        val finalFileName = if (fileName.startsWith("/")) fileName else "/$fileName"
+        return "$baseUrl$encodedPath$finalFileName"
+    }
+
+    private fun ensureRemoteDirectory(context: Context): Boolean {
+        val baseUrl = WebDavSettings.getUrl(context).trimEnd('/')
+        val remotePath = WebDavSettings.getRemotePath(context).trim().trimEnd('/')
+        if (remotePath.isBlank() || remotePath == "/") return true
+
+        val auth = buildAuthHeader(context) ?: return false
+        val client = okHttpClient
+
+        val segments = remotePath.split("/").filter { it.isNotBlank() }
+        var currentUrl = baseUrl
+
+        for (segment in segments) {
+            val encodedSegment = java.net.URLEncoder.encode(segment, "UTF-8").replace("+", "%20")
+            currentUrl = "$currentUrl/$encodedSegment"
+
+            val mkcolRequest = Request.Builder()
+                .url(currentUrl)
+                .method("MKCOL", null)
+                .header("Authorization", auth)
+                .build()
+
+            try {
+                client.newCall(mkcolRequest).execute().use { resp ->
+                    if (!(resp.code == 201 || resp.code == 405 || resp.code == 301)) {
+                        return false
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                return false
+            }
+        }
+        return true
+    }
+
+    private fun tryPut(
+        url: String,
+        auth: String,
+        bytes: ByteArray,
+        mediaType: okhttp3.MediaType?
+    ): Int {
+        val body = bytes.toRequestBody(mediaType)
+        val request = Request.Builder()
+            .url(url)
+            .put(body)
+            .header("Authorization", auth)
+            .header("Content-Type", "application/octet-stream")
+            .build()
+
+        return okHttpClient.newCall(request).execute().use { it.code }
+    }
+
+    suspend fun exportNzBytes(
+        context: Context,
+        modules: BackupModules = BackupModules.ALL
+    ): ByteArray = withContext(Dispatchers.IO) {
+        val aiConfigMap = if (modules.aiConfig) {
+            val db = AppDatabase.get(context)
+            val entries = db.aiConfigDao().getAll()
+            entries.associate { it.key to it.value }
+        } else emptyMap()
+
+        val payload = WebDavBackupPayload(
+            version = 3,
+            exportedAt = System.currentTimeMillis(),
+            sessions = if (modules.sessions) SessionRepository.loadSessions(context) else emptyList(),
+            recycleBin = if (modules.recycleBin) RecycleRepository.loadRecycleBin(context) else emptyList(),
+            categories = if (modules.taxonomy) TagSettings.getCategories(context) else emptyList(),
+            tagGroups = if (modules.taxonomy) TagSettings.getGroups(context) else emptyList(),
+            tags = if (modules.taxonomy) TagSettings.getTags(context) else emptyList(),
+            aiConfig = aiConfigMap
+        )
+        val json = gson.toJson(payload)
+        BackupCipher.encrypt(context, json.toByteArray(Charsets.UTF_8))
+    }
+
+    private suspend fun applyPayload(
+        context: Context,
+        payload: WebDavBackupPayload,
+        modules: BackupModules
+    ): Pair<Int, Int> {
+        var addedSessions = 0
+        var addedRecycle = 0
+
+        if (modules.sessions) {
+            val currentSessions = SessionRepository.loadSessions(context)
+            val mergedSessions = (currentSessions + payload.sessions)
+                .distinctBy { Mappers.sessionKey(it) }
+                .map { TagSettings.migrateLegacySession(context, it) }
+            SessionRepository.saveSessions(context, mergedSessions, triggerAutoBackup = false)
+            addedSessions = mergedSessions.size - currentSessions.size
+        }
+
+        if (modules.recycleBin) {
+            val currentRecycle = RecycleRepository.loadRecycleBin(context)
+            val mergedRecycle = (currentRecycle + payload.recycleBin)
+                .distinctBy { Mappers.sessionKey(it.session) }
+                .map { it.copy(session = TagSettings.migrateLegacySession(context, it.session)) }
+            RecycleRepository.saveRecycleBin(context, mergedRecycle)
+            addedRecycle = mergedRecycle.size - currentRecycle.size
+        }
+
+        if (modules.taxonomy) {
+            TagSettings.mergeTaxonomy(
+                context,
+                payload.categories,
+                payload.tagGroups,
+                payload.tags
+            )
+        }
+
+        if (modules.aiConfig && !payload.aiConfig.isNullOrEmpty()) {
+            val aiDao = AppDatabase.get(context).aiConfigDao()
+            for ((key, value) in payload.aiConfig) {
+                aiDao.upsert(AiConfigEntity(key, value))
+            }
+        }
+
+        return addedSessions to addedRecycle
+    }
+
+    data class BackupPreview(
+        val payload: WebDavBackupPayload,
+        val legacySessionsOnly: Boolean = false
+    ) {
+        val sessionCount: Int get() = payload.sessions.size
+        val recycleCount: Int get() = payload.recycleBin.size
+        val taxonomyCount: Int get() = payload.categories.size + payload.tagGroups.size + payload.tags.size
+        val aiConfigCount: Int get() = payload.aiConfig?.size ?: 0
+    }
+
+    suspend fun previewNzBytes(
+        context: Context,
+        data: ByteArray
+    ): Pair<BackupPreview?, String> = withContext(Dispatchers.IO) {
+        val plain = BackupCipher.decrypt(context, data)
+            ?: return@withContext null to "备份密码不匹配或文件已损坏"
+        val payload = try {
+            gson.fromJson(String(plain, Charsets.UTF_8), WebDavBackupPayload::class.java)
+        } catch (_: Exception) {
+            null
+        } ?: return@withContext null to "备份内容格式无效"
+        BackupPreview(payload) to ""
+    }
+
+    suspend fun previewFromUri(
+        context: Context,
+        uri: Uri
+    ): Pair<BackupPreview?, String> = withContext(Dispatchers.IO) {
+        val bytes = try {
+            context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        } ?: return@withContext null to "无法读取文件"
+        if (BackupCipher.isNzFile(bytes)) {
+            return@withContext previewNzBytes(context, bytes)
+        }
+        val text = String(bytes, Charsets.UTF_8)
+        val payload = try {
+            gson.fromJson(text, WebDavBackupPayload::class.java)
+        } catch (_: Exception) {
+            null
+        }
+        if (payload != null && payload.version > 0) {
+            return@withContext BackupPreview(payload) to ""
+        }
+        val listType = com.google.gson.reflect.TypeToken
+            .getParameterized(
+                List::class.java,
+                me.neko.nzhelper.core.model.Session::class.java
+            ).type
+        val sessions = try {
+            gson.fromJson<List<me.neko.nzhelper.core.model.Session>>(text, listType)
+        } catch (_: Exception) {
+            null
+        } ?: return@withContext null to "无法识别的备份格式"
+        BackupPreview(
+            payload = WebDavBackupPayload(
+                version = 1,
+                exportedAt = 0L,
+                sessions = sessions
+            ),
+            legacySessionsOnly = true
+        ) to ""
+    }
+
+    suspend fun applyPreview(
+        context: Context,
+        preview: BackupPreview,
+        modules: BackupModules
+    ): Pair<Boolean, String> = withContext(Dispatchers.IO) {
+        val effective = if (preview.legacySessionsOnly) {
+            BackupModules(sessions = modules.sessions, recycleBin = false, taxonomy = false, aiConfig = false)
+        } else {
+            modules
+        }
+        val (addedS, addedR) = applyPayload(context, preview.payload, effective)
+        val parts = mutableListOf<String>()
+        if (effective.sessions) parts += "记录 +$addedS"
+        if (effective.recycleBin) parts += "回收站 +$addedR"
+        if (effective.taxonomy) parts += "标签体系已合并"
+        true to if (parts.isEmpty()) "未选择任何模块" else "恢复成功：${parts.joinToString("，")}"
+    }
+
+    suspend fun backupToWebDav(
+        context: Context,
+        modules: BackupModules = BackupModules.ALL
+    ): Pair<Boolean, String> =
+        withContext(Dispatchers.IO) {
+            if (!WebDavSettings.isConfigured(context)) {
+                return@withContext false to "未配置 WebDAV 服务器"
+            }
+            try {
+                val data = exportNzBytes(context, modules)
+                val mediaType = "application/octet-stream".toMediaTypeOrNull()
+
+                val url = buildFullUrl(context, WEBDAV_BACKUP_FILENAME)
+                val auth = buildAuthHeader(context)
+                    ?: return@withContext false to "未配置 WebDAV 服务器"
+
+                var respCode = tryPut(url, auth, data, mediaType)
+
+                if (respCode == 409) {
+                    if (ensureRemoteDirectory(context)) {
+                        val deleteRequest = Request.Builder()
+                            .url(url)
+                            .delete()
+                            .header("Authorization", auth)
+                            .build()
+                        try {
+                            okHttpClient.newCall(deleteRequest).execute().close()
+                        } catch (_: Exception) {
+                        }
+
+                        respCode = tryPut(url, auth, data, mediaType)
+                    } else {
+                        return@withContext false to "无法创建远程目录"
+                    }
+                }
+
+                if (respCode in 200..299) {
+                    val currentTime = System.currentTimeMillis()
+                    WebDavSettings.setLastBackupTime(context, currentTime)
+
+                    val timeStr = java.text.SimpleDateFormat(
+                        "yyyy-MM-dd HH:mm:ss", Locale.getDefault()
+                    ).format(Date(currentTime))
+                    true to "备份成功 ($timeStr)"
+                } else {
+                    false to "备份失败: HTTP $respCode"
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                false to "备份失败: ${e.message ?: "未知错误"}"
+            }
+        }
+
+    suspend fun previewFromWebDav(
+        context: Context
+    ): Pair<BackupPreview?, String> = withContext(Dispatchers.IO) {
+        if (!WebDavSettings.isConfigured(context)) {
+            return@withContext null to "未配置 WebDAV 服务器"
+        }
+        try {
+            val url = buildFullUrl(context, WEBDAV_BACKUP_FILENAME)
+            val auth = buildAuthHeader(context)
+                ?: return@withContext null to "未配置 WebDAV 服务器"
+
+            val request = Request.Builder()
+                .url(url)
+                .get()
+                .header("Authorization", auth)
+                .build()
+
+            okHttpClient.newCall(request).execute().use { resp ->
+                if (!resp.isSuccessful) {
+                    val msg = when (resp.code) {
+                        404, 403, 405 -> "恢复失败: 服务器上未找到备份文件 (HTTP ${resp.code})"
+                        401 -> "恢复失败: 认证失败 (HTTP 401)"
+                        else -> "恢复失败: HTTP ${resp.code}"
+                    }
+                    return@withContext null to msg
+                }
+                val body = resp.body.bytes()
+
+                if (BackupCipher.isNzFile(body)) {
+                    return@withContext previewNzBytes(context, body)
+                }
+
+                val text = String(body, Charsets.UTF_8)
+                val legacyPayload = try {
+                    gson.fromJson(text, WebDavBackupPayload::class.java)
+                } catch (_: Exception) {
+                    null
+                }
+                if (legacyPayload != null && legacyPayload.version > 0) {
+                    return@withContext BackupPreview(legacyPayload) to ""
+                }
+                val remoteSessions = SessionRepository.parseSessionsJson(context, text)
+                BackupPreview(
+                    payload = WebDavBackupPayload(
+                        version = 1,
+                        exportedAt = 0L,
+                        sessions = remoteSessions
+                    ),
+                    legacySessionsOnly = true
+                ) to ""
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null to "恢复失败: ${e.message ?: "未知错误"}"
+        }
+    }
+
+    suspend fun testWebDavConnection(
+        url: String,
+        username: String,
+        password: String
+    ): Pair<Boolean, String> = withContext(Dispatchers.IO) {
+        try {
+            val cleanUrl = url.trimEnd('/')
+            val credentials = "$username:$password"
+            val auth = "Basic " + android.util.Base64.encodeToString(
+                credentials.toByteArray(), android.util.Base64.NO_WRAP
+            )
+
+            val request = Request.Builder()
+                .url("$cleanUrl/")
+                .method("PROPFIND", "".toRequestBody("application/xml".toMediaTypeOrNull()))
+                .header("Authorization", auth)
+                .header("Depth", "0")
+                .build()
+
+            okHttpClient.newCall(request).execute().use { resp ->
+                when {
+                    resp.isSuccessful || resp.code == 207 -> true to "连接成功"
+                    resp.code == 401 -> false to "用户名或密码错误"
+                    resp.code == 403 -> false to "无访问权限"
+                    else -> false to "连接失败: HTTP ${resp.code}"
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false to "连接失败: ${e.message ?: "未知错误"}"
+        }
+    }
+
+    suspend fun autoBackupIfNeeded(context: Context) {
+        if (!WebDavSettings.isAutoBackupEnabled(context)) return
+        if (!WebDavSettings.isConfigured(context)) return
+        backupToWebDav(context)
+    }
+}
