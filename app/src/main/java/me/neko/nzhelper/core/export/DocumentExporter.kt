@@ -7,9 +7,14 @@ import me.neko.nzhelper.core.database.RecycleRepository
 import me.neko.nzhelper.core.database.SessionRepository
 import me.neko.nzhelper.core.datastore.TagSettings
 import me.neko.nzhelper.core.model.BackupModules
+import me.neko.nzhelper.core.model.Contraception
+import me.neko.nzhelper.core.model.PartnerGender
 import me.neko.nzhelper.core.model.RecycleBinItem
 import me.neko.nzhelper.core.model.Session
+import me.neko.nzhelper.core.model.SessionMode
 import me.neko.nzhelper.core.model.TagDef
+import me.neko.nzhelper.core.model.allTagIds
+import me.neko.nzhelper.core.model.sessionMode
 import me.neko.nzhelper.feature.statistics.util.formatDuration
 import java.text.SimpleDateFormat
 import java.time.format.DateTimeFormatter
@@ -91,6 +96,9 @@ object DocumentExporter {
                 val avgRating = sessions.map { it.rating }.average()
                 val oldest = sessions.minByOrNull { it.timestamp }!!.timestamp
                 val newest = sessions.maxByOrNull { it.timestamp }!!.timestamp
+                val maleCount = sessions.count { it.sessionMode() == SessionMode.SOLO_MALE }
+                val femaleCount = sessions.count { it.sessionMode() == SessionMode.SOLO_FEMALE }
+                val pairCount = sessions.count { it.sessionMode() == SessionMode.PAIR }
                 blocks += ReportBlock.Table(
                     headers = listOf("指标", "数值"),
                     rows = listOf(
@@ -101,7 +109,11 @@ object DocumentExporter {
                         ),
                         listOf("总时长", formatDuration(totalSeconds)),
                         listOf("平均时长", "%.0f 分钟".format(avgMinutes)),
-                        listOf("平均评分", "%.1f".format(avgRating))
+                        listOf("平均评分", "%.1f".format(avgRating)),
+                        listOf(
+                            "模式分布",
+                            "男性单人 $maleCount · 女性单人 $femaleCount · 双人 $pairCount"
+                        )
                     ),
                     weights = listOf(1f, 2.2f)
                 )
@@ -225,9 +237,19 @@ object DocumentExporter {
                 sessionRow(s, categoryNames, tagNames)
             }
         return ReportBlock.Table(
-            headers = listOf("日期", "时长", "评分", "高潮", "分类", "标签", "备注"),
+            headers = listOf(
+                "日期",
+                "模式",
+                "时长",
+                "评分",
+                "高潮",
+                "对方",
+                "分类",
+                "标签",
+                "备注"
+            ),
             rows = rows,
-            weights = listOf(86f, 44f, 34f, 32f, 46f, 98f, 116f)
+            weights = listOf(80f, 42f, 40f, 30f, 40f, 96f, 42f, 86f, 96f)
         )
     }
 
@@ -243,9 +265,11 @@ object DocumentExporter {
                         sessionRow(item.session, categoryNames, tagNames)
             }
         return ReportBlock.Table(
-            headers = listOf("删除时间", "日期", "时长", "评分", "高潮", "分类", "标签", "备注"),
+            headers = listOf(
+                "删除时间", "日期", "模式", "时长", "评分", "高潮", "对方", "分类", "标签", "备注"
+            ),
             rows = rows,
-            weights = listOf(90f, 90f, 38f, 34f, 32f, 38f, 80f, 98f)
+            weights = listOf(84f, 84f, 38f, 36f, 30f, 34f, 86f, 36f, 74f, 84f)
         )
     }
 
@@ -253,13 +277,38 @@ object DocumentExporter {
         s: Session,
         categoryNames: Map<String, String>,
         tagNames: Map<String, String>
-    ): List<String> = listOf(
-        s.timestamp.format(dateTimeFormat),
-        formatDuration(s.duration),
-        "%.1f".format(s.rating),
-        if (s.climax) "是" else "否",
-        categoryNames[s.categoryId]?.takeIf { it.isNotBlank() } ?: "未分类",
-        s.tagIds.mapNotNull { tagNames[it] }.joinToString("、").ifEmpty { "—" },
-        s.remark.trim().ifEmpty { "—" }
-    )
+    ): List<String> {
+        val snapNames = s.tagSnapshots.orEmpty().associate { it.id to it.name }
+        return listOf(
+            s.timestamp.format(dateTimeFormat),
+            s.sessionMode().label,
+            formatDuration(s.duration),
+            "%.1f".format(s.rating),
+            if (s.sessionMode() == SessionMode.PAIR) {
+                "${s.climaxCount}/${s.partnerClimaxCount}"
+            } else {
+                "${s.climaxCount}"
+            },
+            pairDetails(s, tagNames, snapNames) ?: "—",
+            categoryNames[s.categoryId]?.takeIf { it.isNotBlank() } ?: "未分类",
+            s.allTagIds().mapNotNull { snapNames[it] ?: tagNames[it] }
+                .joinToString("、").ifEmpty { "—" },
+            s.remark.trim().ifEmpty { "—" }
+        )
+    }
+
+    private fun pairDetails(
+        s: Session,
+        tagNames: Map<String, String>,
+        snapNames: Map<String, String>
+    ): String? {
+        if (s.sessionMode() != SessionMode.PAIR) return null
+        val parts = mutableListOf<String>()
+        val partners = s.partners.mapNotNull { snapNames[it] ?: tagNames[it] }.joinToString("、")
+        if (partners.isNotEmpty()) parts += "伴侣：$partners"
+        if (s.initiator.isNotBlank()) parts += "发起者：${s.initiator}"
+        PartnerGender.fromKey(s.partnerGender)?.let { parts += "对方性别：${it.label}" }
+        parts += "避孕：${Contraception.fromKey(s.contraception).label}"
+        return parts.joinToString("｜")
+    }
 }
