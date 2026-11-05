@@ -5,83 +5,90 @@ import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.os.IBinder
+import android.provider.Settings
 import android.widget.Toast
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.PictureInPictureAlt
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.rounded.Celebration
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberTopAppBarState
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
+import java.time.LocalDate
 import kotlinx.coroutines.launch
-import me.neko.nzhelper.NzApplication
 import me.neko.nzhelper.core.ai.AiAnalyzer
 import me.neko.nzhelper.core.ai.AiSettings
 import me.neko.nzhelper.core.ai.AiUsage
-import me.neko.nzhelper.core.auto.AutoTagRules
 import me.neko.nzhelper.core.database.SessionRepository
 import me.neko.nzhelper.core.database.StatisticsRepository
 import me.neko.nzhelper.core.datastore.AgeGroupSettings
-import me.neko.nzhelper.core.datastore.TagSettings
+import me.neko.nzhelper.core.datastore.TimerSettings
 import me.neko.nzhelper.core.model.Session
-import me.neko.nzhelper.core.model.SessionFormState
 import me.neko.nzhelper.core.service.TimerService
+import me.neko.nzhelper.feature.addrecord.AddRecordFlow
+import me.neko.nzhelper.feature.home.components.analyzeHealthTip
 import me.neko.nzhelper.feature.home.components.ConfirmResetDialog
 import me.neko.nzhelper.feature.home.components.ConfirmStopDialog
 import me.neko.nzhelper.feature.home.components.HealthTipCard
 import me.neko.nzhelper.feature.home.components.TimerCard
-import me.neko.nzhelper.feature.home.components.analyzeHealthTip
-import me.neko.nzhelper.ui.component.dialog.DetailsDialog
-import java.time.LocalDate
-import java.time.LocalDateTime
+import me.neko.nzhelper.navigation.floatingBarContentBottomInset
+import me.neko.nzhelper.NzApplication
+import me.neko.nzhelper.ui.component.dialog.CustomAppAlertDialog
 
 @OptIn(
     ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class,
@@ -91,10 +98,11 @@ import java.time.LocalDateTime
 fun HomeScreen(
     isActive: Boolean = false,
     stopRequestId: Int = 0,
-    onStopRequestConsumed: (Int) -> Unit = {}
+    onStopRequestConsumed: (Int) -> Unit = {},
+    onOpenAddRecord: (AddRecordFlow, Int) -> Unit = { _, _ -> },
+    onOpenHistory: () -> Unit = {}
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     val scrollBehavior =
         TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
 
@@ -136,10 +144,20 @@ fun HomeScreen(
         ?: remember { mutableStateOf(false) }
 
     var showConfirmDialog by remember { mutableStateOf(false) }
-    var showDetailsDialog by remember { mutableStateOf(false) }
     var showResetConfirmDialog by remember { mutableStateOf(false) }
-    var showManualAddDialog by remember { mutableStateOf(false) }
-    var formState by remember { mutableStateOf(SessionFormState()) }
+
+    var floatingTimerEnabled by remember { mutableStateOf(TimerSettings.isFloatingEnabled(context)) }
+    var showOverlayPermissionDialog by remember { mutableStateOf(false) }
+    var pendingFloatingGrant by remember { mutableStateOf(false) }
+    val toggleFloatingTimer: (Boolean) -> Unit = { enabled ->
+        if (enabled && !Settings.canDrawOverlays(context)) {
+            showOverlayPermissionDialog = true
+        } else {
+            floatingTimerEnabled = enabled
+            TimerSettings.setFloatingEnabled(context, enabled)
+            timerService?.applyFloatingPreference()
+        }
+    }
     val sessions = remember { mutableStateListOf<Session>() }
     var isLoading by remember { mutableStateOf(true) }
     var resumeKey by remember { mutableIntStateOf(0) }
@@ -147,7 +165,16 @@ fun HomeScreen(
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) resumeKey++
+            if (event == Lifecycle.Event.ON_RESUME) {
+                resumeKey++
+                floatingTimerEnabled = TimerSettings.isFloatingEnabled(context)
+                if (pendingFloatingGrant && Settings.canDrawOverlays(context)) {
+                    pendingFloatingGrant = false
+                    floatingTimerEnabled = true
+                    TimerSettings.setFloatingEnabled(context, true)
+                    timerService?.applyFloatingPreference()
+                }
+            }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
@@ -206,7 +233,7 @@ fun HomeScreen(
             val birth = AgeGroupSettings.getBirthDate(context)
             val today = LocalDate.now()
             if (birth.month == today.month && birth.dayOfMonth == today.dayOfMonth)
-                "生日快乐！🎂 \n今天对自己好一点，放松心情享受生活吧～"
+                "今天对自己好一点，放松心情享受生活吧～"
             else null
         } catch (_: Exception) {
             null
@@ -284,7 +311,12 @@ fun HomeScreen(
                 modifier = Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp)
+                contentPadding = PaddingValues(
+                    start = 16.dp,
+                    end = 16.dp,
+                    top = 4.dp,
+                    bottom = 16.dp + floatingBarContentBottomInset()
+                )
             ) {
                 item {
                     TimerCard(
@@ -292,6 +324,8 @@ fun HomeScreen(
                         isRunning = isServiceRunning,
                         latestInfo = latestInfo,
                         isLoading = isLoading,
+                        floatingEnabled = floatingTimerEnabled,
+                        onToggleFloating = { toggleFloatingTimer(!floatingTimerEnabled) },
                         onToggleRun = {
                             if (isServiceRunning) {
                                 context.startService(serviceIntent.apply {
@@ -311,30 +345,21 @@ fun HomeScreen(
                         onReset = {
                             if (elapsedSeconds > 0) showResetConfirmDialog = true
                             else Toast.makeText(context, "计时尚未开始", Toast.LENGTH_SHORT).show()
-                        }
+                        },
+                        onOpenHistory = onOpenHistory
                     )
                 }
                 item {
-                    OutlinedButton(
-                        onClick = {
-                            val nowTime = LocalDateTime.now()
-                            val suggested = AutoTagRules.suggest(context, nowTime)
-                            formState = SessionFormState(
-                                categoryId = TagSettings.defaultCategory(context).id,
-                                tagIds = suggested,
-                                autoTagIds = suggested,
-                                manualYear = nowTime.year,
-                                manualMonth = nowTime.monthValue,
-                                manualDay = nowTime.dayOfMonth,
-                                manualHour = nowTime.hour,
-                                manualMinute = nowTime.minute
-                            )
-                            showManualAddDialog = true
-                        },
+                    FilledTonalButton(
+                        onClick = { onOpenAddRecord(AddRecordFlow.MANUAL, 0) },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(52.dp),
-                        shape = MaterialTheme.shapes.large
+                            .height(56.dp),
+                        shape = MaterialTheme.shapes.large,
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
                     ) {
                         Icon(
                             Icons.Outlined.Add,
@@ -351,43 +376,14 @@ fun HomeScreen(
                 }
                 if (birthdayGreeting != null) {
                     item {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = MaterialTheme.shapes.large,
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(
-                                    alpha = 0.6f
-                                )
-                            )
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    Icons.Rounded.Celebration, null,
-                                    tint = MaterialTheme.colorScheme.tertiary,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(Modifier.width(12.dp))
-                                Text(
-                                    birthdayGreeting,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onTertiaryContainer
-                                )
-                            }
-                        }
+                        BirthdayCard(message = birthdayGreeting)
                     }
                 }
-                if (healthTip != null && !showAiCard) {
-                    item {
-                        HealthTipCard(tip = healthTip!!)
-                    }
-                }
-                if (showAiCard) {
+                if (showAiCard || healthTip != null) {
                     item {
                         HealthTipCard(
                             tip = healthTip,
+                            aiEnabled = showAiCard,
                             aiTip = aiHealthTip,
                             aiLoading = aiLoading,
                             errorText = aiError,
@@ -400,21 +396,40 @@ fun HomeScreen(
         }
     }
 
+    if (showOverlayPermissionDialog) {
+        CustomAppAlertDialog(
+            onDismissRequest = { showOverlayPermissionDialog = false },
+            iconVector = Icons.Outlined.PictureInPictureAlt,
+            title = "需要悬浮窗权限",
+            message = "计时悬浮窗需要「显示在其他应用上层」权限，请在系统设置中开启后再打开此开关。",
+            confirmText = "去授权",
+            confirmIcon = Icons.Outlined.Settings,
+            dismissText = "取消",
+            onConfirm = {
+                showOverlayPermissionDialog = false
+                pendingFloatingGrant = true
+                val intent = Intent(
+                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    "package:${context.packageName}".toUri()
+                ).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+                try {
+                    context.startActivity(intent)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        )
+    }
+
     if (showConfirmDialog) {
         ConfirmStopDialog(
             onDismiss = { showConfirmDialog = false },
             onConfirm = {
                 showConfirmDialog = false
-                val nowTime = LocalDateTime.now()
-                val suggested = AutoTagRules.suggest(context, nowTime)
-                formState = formState.copy(
-                    tagIds = suggested,
-                    autoTagIds = suggested
-                )
-                showDetailsDialog = true
                 context.startService(serviceIntent.apply {
                     action = TimerService.ACTION_PAUSE
                 })
+                onOpenAddRecord(AddRecordFlow.TIMER, elapsedSeconds)
             }
         )
     }
@@ -430,76 +445,52 @@ fun HomeScreen(
             }
         )
     }
+}
 
-    DetailsDialog(
-        show = showDetailsDialog,
-        formState = formState,
-        onFormStateChange = { formState = it },
-        onConfirm = {
-            val nowTime = LocalDateTime.now()
-            val finalTags = run {
-                val suggested = AutoTagRules.suggest(context, nowTime)
-                val (merged, added) = AutoTagRules.merge(formState.tagIds, suggested)
-                merged to (formState.autoTagIds + added)
+@Composable
+private fun BirthdayCard(message: String, modifier: Modifier = Modifier) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f)
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.18f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Celebration,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.tertiary,
+                    modifier = Modifier.size(20.dp)
+                )
             }
-            val session = Session(
-                timestamp = nowTime,
-                duration = elapsedSeconds,
-                remark = formState.remark,
-                rating = formState.rating,
-                climax = formState.climax,
-                categoryId = formState.categoryId.ifBlank { TagSettings.defaultCategory(context).id },
-                tagIds = finalTags.first.toList()
-            )
-            sessions.add(0, session)
-            scope.launch { SessionRepository.saveSessions(context, sessions) }
-
-            formState = SessionFormState()
-            showDetailsDialog = false
-            context.startService(serviceIntent.apply { action = TimerService.ACTION_STOP })
-        },
-        onDismiss = {
-            showDetailsDialog = false
-            context.startService(serviceIntent.apply { action = TimerService.ACTION_START })
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "生日快乐 🎂",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = message,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.85f)
+                )
+            }
         }
-    )
-
-    DetailsDialog(
-        show = showManualAddDialog,
-        formState = formState,
-        onFormStateChange = { formState = it },
-        showDurationField = true,
-        title = "手动添加记录",
-        onConfirm = {
-            val duration = formState.manualDurationSeconds
-            if (duration <= 0) {
-                Toast.makeText(context, "请输入时长", Toast.LENGTH_SHORT).show()
-                return@DetailsDialog
-            }
-            val timestamp = try {
-                formState.toLocalDateTime()
-            } catch (_: Exception) {
-                Toast.makeText(context, "日期时间无效，请重新选择", Toast.LENGTH_SHORT)
-                    .show()
-                return@DetailsDialog
-            }
-            val session = Session(
-                timestamp = timestamp,
-                duration = duration,
-                remark = formState.remark,
-                rating = formState.rating,
-                climax = formState.climax,
-                categoryId = formState.categoryId.ifBlank { TagSettings.defaultCategory(context).id },
-                tagIds = formState.tagIds.toList()
-            )
-            sessions.add(0, session)
-            scope.launch { SessionRepository.saveSessions(context, sessions) }
-
-            formState = SessionFormState()
-            showManualAddDialog = false
-        },
-        onDismiss = { showManualAddDialog = false }
-    )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

@@ -1,10 +1,10 @@
 package me.neko.nzhelper.feature.settings
 
+import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Image as BitmapImage
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -31,9 +30,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.outlined.BlurCircular
 import androidx.compose.material.icons.outlined.BlurOn
-import androidx.compose.material.icons.outlined.ColorLens
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.Dashboard
 import androidx.compose.material.icons.outlined.DeleteOutline
@@ -42,6 +40,7 @@ import androidx.compose.material.icons.outlined.LightMode
 import androidx.compose.material.icons.outlined.Opacity
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.PhoneAndroid
+import androidx.compose.material.icons.outlined.VerticalAlignBottom
 import androidx.compose.material.icons.outlined.Window
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -56,6 +55,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberSliderState
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -67,7 +67,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
@@ -76,17 +75,18 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.neko.nzhelper.core.datastore.ThemeSettings
 import me.neko.nzhelper.core.util.BackgroundImageManager
 import me.neko.nzhelper.ui.component.setting.SettingsCard
-import me.neko.nzhelper.ui.component.setting.SettingsDivider
 import me.neko.nzhelper.ui.component.setting.SettingsItem
+import me.neko.nzhelper.ui.component.setting.SettingsItemSurface
 import me.neko.nzhelper.ui.theme.LocalThemeState
 import me.neko.nzhelper.ui.theme.ThemeColorOptions
+import kotlin.math.roundToInt
+import androidx.compose.foundation.Image as BitmapImage
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -166,92 +166,40 @@ fun ThemeSettingsScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
-                SettingsCard {
-                    ModeOption(
-                        icon = Icons.Outlined.PhoneAndroid,
-                        title = "跟随系统",
-                        subtitle = "自动在浅色与深色外观间切换",
-                        selected = themeState.themeMode == ThemeSettings.ThemeMode.SYSTEM,
-                        onClick = {
-                            themeState.themeMode = ThemeSettings.ThemeMode.SYSTEM
-                            ThemeSettings.setThemeMode(context, ThemeSettings.ThemeMode.SYSTEM)
-                        }
-                    )
-                    SettingsDivider()
-                    ModeOption(
-                        icon = Icons.Outlined.LightMode,
-                        title = "浅色模式",
-                        subtitle = "始终使用浅色外观",
-                        selected = themeState.themeMode == ThemeSettings.ThemeMode.LIGHT,
-                        onClick = {
-                            themeState.themeMode = ThemeSettings.ThemeMode.LIGHT
-                            ThemeSettings.setThemeMode(context, ThemeSettings.ThemeMode.LIGHT)
-                        }
-                    )
-                    SettingsDivider()
-                    ModeOption(
-                        icon = Icons.Outlined.DarkMode,
-                        title = "深色模式",
-                        subtitle = "始终使用深色外观",
-                        selected = themeState.themeMode == ThemeSettings.ThemeMode.DARK,
-                        onClick = {
-                            themeState.themeMode = ThemeSettings.ThemeMode.DARK
-                            ThemeSettings.setThemeMode(context, ThemeSettings.ThemeMode.DARK)
-                        }
-                    )
-                }
-            }
-
-            item {
-                SettingsCard {
-                    SettingsItem(
-                        icon = Icons.Outlined.DarkMode,
-                        title = "AMOLED 纯黑",
-                        subtitle = "深色模式下使用纯黑背景",
-                        enabled = effectiveDark,
-                        onClick = {
-                            if (effectiveDark) {
-                                themeState.amoledDark = !themeState.amoledDark
-                                ThemeSettings.setAmoledDark(context, themeState.amoledDark)
+                SettingsCard(title = "主题模式") {
+                    item {
+                        ModeOption(
+                            icon = Icons.Outlined.PhoneAndroid,
+                            title = "跟随系统",
+                            subtitle = "自动在浅色与深色外观间切换",
+                            selected = themeState.themeMode == ThemeSettings.ThemeMode.SYSTEM,
+                            onClick = {
+                                themeState.themeMode = ThemeSettings.ThemeMode.SYSTEM
+                                ThemeSettings.setThemeMode(context, ThemeSettings.ThemeMode.SYSTEM)
                             }
-                        },
-                        trailingContent = {
-                            Switch(
-                                checked = themeState.amoledDark,
-                                enabled = effectiveDark,
-                                onCheckedChange = { enabled ->
-                                    themeState.amoledDark = enabled
-                                    ThemeSettings.setAmoledDark(context, enabled)
-                                }
-                            )
-                        }
-                    )
-                    SettingsDivider()
-                    SettingsItem(
-                        icon = Icons.Outlined.Palette,
-                        title = "动态取色",
-                        subtitle = "使用壁纸颜色生成 Material You 主题（Android 12+）",
-                        onClick = {
-                            themeState.dynamicColor = !themeState.dynamicColor
-                            ThemeSettings.setDynamicColor(context, themeState.dynamicColor)
-                        },
-                        trailingContent = {
-                            Switch(
-                                checked = themeState.dynamicColor,
-                                onCheckedChange = { enabled ->
-                                    themeState.dynamicColor = enabled
-                                    ThemeSettings.setDynamicColor(context, enabled)
-                                }
-                            )
-                        }
-                    )
-                    if (!themeState.dynamicColor) {
-                        SettingsDivider()
-                        ThemeColorPickerItem(
-                            selectedIndex = themeState.themeColorIndex,
-                            onSelect = { index ->
-                                themeState.themeColorIndex = index
-                                ThemeSettings.setThemeColorIndex(context, index)
+                        )
+                    }
+                    item {
+                        ModeOption(
+                            icon = Icons.Outlined.LightMode,
+                            title = "浅色模式",
+                            subtitle = "始终使用浅色外观",
+                            selected = themeState.themeMode == ThemeSettings.ThemeMode.LIGHT,
+                            onClick = {
+                                themeState.themeMode = ThemeSettings.ThemeMode.LIGHT
+                                ThemeSettings.setThemeMode(context, ThemeSettings.ThemeMode.LIGHT)
+                            }
+                        )
+                    }
+                    item {
+                        ModeOption(
+                            icon = Icons.Outlined.DarkMode,
+                            title = "深色模式",
+                            subtitle = "始终使用深色外观",
+                            selected = themeState.themeMode == ThemeSettings.ThemeMode.DARK,
+                            onClick = {
+                                themeState.themeMode = ThemeSettings.ThemeMode.DARK
+                                ThemeSettings.setThemeMode(context, ThemeSettings.ThemeMode.DARK)
                             }
                         )
                     }
@@ -259,109 +207,246 @@ fun ThemeSettingsScreen(
             }
 
             item {
-                SettingsCard {
-                    SettingsItem(
-                        icon = Icons.Outlined.Image,
-                        title = "自定义背景图片",
-                        subtitle = if (hasBackground) "点击更换图片" else "从相册选择图片作为全局背景",
-                        onClick = {
-                            pickBackgroundLauncher.launch(
-                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                            )
-                        },
-                        trailingContent = {
-                            BackgroundThumbnail(imagePath = themeState.backgroundImagePath)
-                        }
-                    )
-                    SettingsDivider()
-                    SettingsItem(
-                        icon = Icons.Outlined.Opacity,
-                        title = "背景不透明度",
-                        subtitle = "${(themeState.backgroundOpacity * 100).roundToInt()}%",
-                        enabled = hasBackground,
-                        onClick = {},
-                        trailingContent = {
-                            Slider(
-                                value = themeState.backgroundOpacity,
-                                onValueChange = { opacity ->
-                                    themeState.backgroundOpacity = opacity
-                                    ThemeSettings.setBackgroundOpacity(context, opacity)
-                                },
-                                modifier = Modifier.width(160.dp),
-                                enabled = hasBackground
-                            )
-                        }
-                    )
-                    SettingsDivider()
-                    SettingsItem(
-                        icon = Icons.Outlined.BlurOn,
-                        title = "背景模糊度",
-                        subtitle = if (themeState.backgroundBlur < 0.5f) {
-                            "无"
-                        } else {
-                            "${themeState.backgroundBlur.roundToInt()} dp"
-                        },
-                        enabled = hasBackground,
-                        onClick = {},
-                        trailingContent = {
-                            Slider(
-                                value = themeState.backgroundBlur,
-                                onValueChange = { blur ->
-                                    themeState.backgroundBlur = blur
-                                    ThemeSettings.setBackgroundBlur(context, blur)
-                                },
-                                valueRange = 0f..25f,
-                                modifier = Modifier.width(160.dp),
-                                enabled = hasBackground
-                            )
-                        }
-                    )
-                    SettingsDivider()
-                    SettingsItem(
-                        icon = Icons.Outlined.Dashboard,
-                        title = "卡片不透明度",
-                        subtitle = "${(themeState.cardOpacity * 100).roundToInt()}%",
-                        enabled = hasBackground,
-                        onClick = {},
-                        trailingContent = {
-                            Slider(
-                                value = themeState.cardOpacity,
-                                onValueChange = { opacity ->
-                                    themeState.cardOpacity = opacity
-                                    ThemeSettings.setCardOpacity(context, opacity)
-                                },
-                                modifier = Modifier.width(160.dp),
-                                enabled = hasBackground
-                            )
-                        }
-                    )
-                    SettingsDivider()
-                    SettingsItem(
-                        icon = Icons.Outlined.Window,
-                        title = "弹窗不透明度",
-                        subtitle = "${(themeState.dialogOpacity * 100).roundToInt()}%",
-                        enabled = hasBackground,
-                        onClick = {},
-                        trailingContent = {
-                            Slider(
-                                value = themeState.dialogOpacity,
-                                onValueChange = { opacity ->
-                                    themeState.dialogOpacity = opacity
-                                    ThemeSettings.setDialogOpacity(context, opacity)
-                                },
-                                modifier = Modifier.width(160.dp),
-                                enabled = hasBackground
-                            )
-                        }
-                    )
-                    if (hasBackground) {
-                        SettingsDivider()
+                SettingsCard(title = "颜色") {
+                    item {
                         SettingsItem(
-                            icon = Icons.Outlined.DeleteOutline,
-                            title = "移除背景图片",
-                            subtitle = "恢复纯色背景",
-                            onClick = removeBackground
+                            icon = Icons.Outlined.DarkMode,
+                            title = "AMOLED 纯黑",
+                            subtitle = "深色模式下使用纯黑背景",
+                            enabled = effectiveDark,
+                            onClick = {
+                                if (effectiveDark) {
+                                    themeState.amoledDark = !themeState.amoledDark
+                                    ThemeSettings.setAmoledDark(context, themeState.amoledDark)
+                                }
+                            },
+                            trailingContent = {
+                                Switch(
+                                    checked = themeState.amoledDark,
+                                    enabled = effectiveDark,
+                                    onCheckedChange = { enabled ->
+                                        themeState.amoledDark = enabled
+                                        ThemeSettings.setAmoledDark(context, enabled)
+                                    }
+                                )
+                            }
                         )
+                    }
+                    item {
+                        SettingsItem(
+                            icon = Icons.Outlined.Palette,
+                            title = "动态取色",
+                            subtitle = "使用壁纸颜色生成 Material You 主题（Android 12+）",
+                            onClick = {
+                                themeState.dynamicColor = !themeState.dynamicColor
+                                ThemeSettings.setDynamicColor(context, themeState.dynamicColor)
+                            },
+                            trailingContent = {
+                                Switch(
+                                    checked = themeState.dynamicColor,
+                                    onCheckedChange = { enabled ->
+                                        themeState.dynamicColor = enabled
+                                        ThemeSettings.setDynamicColor(context, enabled)
+                                    }
+                                )
+                            }
+                        )
+                    }
+                    if (!themeState.dynamicColor) {
+                        item {
+                            ThemeColorPickerItem(
+                                selectedIndex = themeState.themeColorIndex,
+                                onSelect = { index ->
+                                    themeState.themeColorIndex = index
+                                    ThemeSettings.setThemeColorIndex(context, index)
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
+                SettingsCard(title = "界面") {
+                    item {
+                        SettingsItem(
+                            icon = Icons.Outlined.VerticalAlignBottom,
+                            title = "悬浮底栏",
+                            subtitle = "使用悬浮胶囊样式的底部导航栏",
+                            onClick = {
+                                themeState.floatingBottomBar = !themeState.floatingBottomBar
+                                ThemeSettings.setFloatingBottomBar(
+                                    context,
+                                    themeState.floatingBottomBar
+                                )
+                            },
+                            trailingContent = {
+                                Switch(
+                                    checked = themeState.floatingBottomBar,
+                                    onCheckedChange = { enabled ->
+                                        themeState.floatingBottomBar = enabled
+                                        ThemeSettings.setFloatingBottomBar(context, enabled)
+                                    }
+                                )
+                            }
+                        )
+                    }
+                    item {
+                        SettingsItem(
+                            icon = Icons.Outlined.BlurCircular,
+                            title = "模糊效果",
+                            subtitle = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                "使用毛玻璃背景模糊"
+                            } else {
+                                "当前系统版本不支持背景模糊（需 Android 12+）"
+                            },
+                            enabled = themeState.floatingBottomBar,
+                            onClick = {
+                                themeState.blurEffect = !themeState.blurEffect
+                                ThemeSettings.setBlurEffectEnabled(context, themeState.blurEffect)
+                            },
+                            trailingContent = {
+                                Switch(
+                                    checked = themeState.blurEffect,
+                                    enabled = themeState.floatingBottomBar,
+                                    onCheckedChange = { enabled ->
+                                        themeState.blurEffect = enabled
+                                        ThemeSettings.setBlurEffectEnabled(context, enabled)
+                                    }
+                                )
+                            }
+                        )
+                    }
+                }
+            }
+
+            item {
+                SettingsCard(title = "背景") {
+                    item {
+                        SettingsItem(
+                            icon = Icons.Outlined.Image,
+                            title = "自定义背景图片",
+                            subtitle = if (hasBackground) "点击更换图片" else "从相册选择图片作为全局背景",
+                            onClick = {
+                                pickBackgroundLauncher.launch(
+                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                )
+                            },
+                            trailingContent = {
+                                BackgroundThumbnail(imagePath = themeState.backgroundImagePath)
+                            }
+                        )
+                    }
+                    item {
+                        SettingsItem(
+                            icon = Icons.Outlined.Opacity,
+                            title = "背景不透明度",
+                            subtitle = "${(themeState.backgroundOpacity * 100).roundToInt()}%",
+                            enabled = hasBackground,
+                            onClick = {},
+                            trailingContent = {
+                                val opacityState = rememberSliderState(
+                                    value = themeState.backgroundOpacity
+                                )
+                                Slider(
+                                    state = opacityState,
+                                    onValueChange = { opacity ->
+                                        opacityState.value = opacity
+                                        themeState.backgroundOpacity = opacity
+                                        ThemeSettings.setBackgroundOpacity(context, opacity)
+                                    },
+                                    modifier = Modifier.width(160.dp),
+                                    enabled = hasBackground
+                                )
+                            }
+                        )
+                    }
+                    item {
+                        SettingsItem(
+                            icon = Icons.Outlined.BlurOn,
+                            title = "背景模糊度",
+                            subtitle = if (themeState.backgroundBlur < 0.5f) {
+                                "无"
+                            } else {
+                                "${themeState.backgroundBlur.roundToInt()} dp"
+                            },
+                            enabled = hasBackground,
+                            onClick = {},
+                            trailingContent = {
+                                val blurState = rememberSliderState(
+                                    value = themeState.backgroundBlur,
+                                    trackRange = 0f..25f
+                                )
+                                Slider(
+                                    state = blurState,
+                                    onValueChange = { blur ->
+                                        blurState.value = blur
+                                        themeState.backgroundBlur = blur
+                                        ThemeSettings.setBackgroundBlur(context, blur)
+                                    },
+                                    modifier = Modifier.width(160.dp),
+                                    enabled = hasBackground
+                                )
+                            }
+                        )
+                    }
+                    item {
+                        SettingsItem(
+                            icon = Icons.Outlined.Dashboard,
+                            title = "卡片不透明度",
+                            subtitle = "${(themeState.cardOpacity * 100).roundToInt()}%",
+                            enabled = hasBackground,
+                            onClick = {},
+                            trailingContent = {
+                                val cardOpacityState = rememberSliderState(
+                                    value = themeState.cardOpacity
+                                )
+                                Slider(
+                                    state = cardOpacityState,
+                                    onValueChange = { opacity ->
+                                        cardOpacityState.value = opacity
+                                        themeState.cardOpacity = opacity
+                                        ThemeSettings.setCardOpacity(context, opacity)
+                                    },
+                                    modifier = Modifier.width(160.dp),
+                                    enabled = hasBackground
+                                )
+                            }
+                        )
+                    }
+                    item {
+                        SettingsItem(
+                            icon = Icons.Outlined.Window,
+                            title = "弹窗不透明度",
+                            subtitle = "${(themeState.dialogOpacity * 100).roundToInt()}%",
+                            enabled = hasBackground,
+                            onClick = {},
+                            trailingContent = {
+                                val dialogOpacityState = rememberSliderState(
+                                    value = themeState.dialogOpacity
+                                )
+                                Slider(
+                                    state = dialogOpacityState,
+                                    onValueChange = { opacity ->
+                                        dialogOpacityState.value = opacity
+                                        themeState.dialogOpacity = opacity
+                                        ThemeSettings.setDialogOpacity(context, opacity)
+                                    },
+                                    modifier = Modifier.width(160.dp),
+                                    enabled = hasBackground
+                                )
+                            }
+                        )
+                    }
+                    if (hasBackground) {
+                        item {
+                            SettingsItem(
+                                icon = Icons.Outlined.DeleteOutline,
+                                title = "移除背景图片",
+                                subtitle = "恢复纯色背景",
+                                onClick = removeBackground
+                            )
+                        }
                     }
                 }
             }
@@ -432,55 +517,31 @@ private fun ThemeColorPickerItem(
     selectedIndex: Int,
     onSelect: (Int) -> Unit
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .padding(vertical = 8.dp)
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.ColorLens,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(22.dp)
-                )
-            }
-            Spacer(modifier = Modifier.width(16.dp))
-            Column {
-                Text(
-                    text = "主题色",
-                    style = MaterialTheme.typography.bodyLarge
-                )
-                Text(
-                    text = "关闭动态取色后使用所选颜色",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-        Spacer(modifier = Modifier.height(12.dp))
-        FlowRow(
+    SettingsItemSurface {
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 56.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(horizontal = 16.dp)
+                .padding(vertical = 12.dp)
         ) {
-            ThemeColorOptions.forEachIndexed { index, option ->
-                ColorDot(
-                    color = option.seed,
-                    name = option.name,
-                    selected = index == selectedIndex,
-                    onClick = { onSelect(index) }
-                )
+            Text(
+                text = "主题色",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(8.dp))
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                ThemeColorOptions.forEachIndexed { index, option ->
+                    ColorDot(
+                        color = option.seed,
+                        name = option.name,
+                        selected = index == selectedIndex,
+                        onClick = { onSelect(index) }
+                    )
+                }
             }
         }
     }
@@ -495,40 +556,28 @@ private fun ColorDot(
 ) {
     Box(
         modifier = Modifier
-            .size(44.dp)
+            .size(40.dp)
             .clip(CircleShape)
             .selectable(
                 selected = selected,
                 onClick = onClick,
                 role = Role.RadioButton
             )
-            .semantics { contentDescription = name },
+            .semantics { contentDescription = name }
+            .border(
+                width = if (selected) 3.dp else 1.dp,
+                color = if (selected) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.outlineVariant,
+                shape = CircleShape
+            )
+            .padding(6.dp),
         contentAlignment = Alignment.Center
     ) {
         Box(
             modifier = Modifier
-                .size(if (selected) 26.dp else 30.dp)
+                .fillMaxSize()
                 .clip(CircleShape)
                 .background(color)
-                .border(
-                    width = if (selected) 2.dp else 1.dp,
-                    color = if (selected) {
-                        MaterialTheme.colorScheme.onSurface
-                    } else {
-                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                    },
-                    shape = CircleShape
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            if (selected) {
-                Icon(
-                    imageVector = Icons.Filled.Check,
-                    contentDescription = null,
-                    tint = if (color.luminance() > 0.5f) Color.Black else Color.White,
-                    modifier = Modifier.size(16.dp)
-                )
-            }
-        }
+        )
     }
 }

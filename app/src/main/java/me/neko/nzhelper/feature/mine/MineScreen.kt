@@ -1,0 +1,610 @@
+package me.neko.nzhelper.feature.mine
+
+import android.content.Context
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.biometric.BiometricManager
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.automirrored.outlined.ViewQuilt
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.BugReport
+import androidx.compose.material.icons.outlined.Cake
+import androidx.compose.material.icons.outlined.CloudSync
+import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Gesture
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Male
+import androidx.compose.material.icons.outlined.NotificationsActive
+import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Science
+import androidx.compose.material.icons.outlined.Sell
+import androidx.compose.material.icons.outlined.SmartToy
+import androidx.compose.material.icons.outlined.Timer
+import androidx.compose.material.icons.outlined.Update
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.LargeFlexibleTopAppBar
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.rememberTopAppBarState
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import androidx.core.content.edit
+import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.navigation.NavController
+import java.time.LocalDate
+import java.time.Period
+import kotlinx.coroutines.launch
+import me.neko.nzhelper.BuildConfig
+import me.neko.nzhelper.core.achievement.AchievementRepository
+import me.neko.nzhelper.core.ai.AiSettings
+import me.neko.nzhelper.core.auto.AutoTagRules
+import me.neko.nzhelper.core.crash.CrashLogManager
+import me.neko.nzhelper.core.database.ProfileSummaryRepository
+import me.neko.nzhelper.core.datastore.AgeGroupSettings
+import me.neko.nzhelper.core.datastore.AvatarSettings
+import me.neko.nzhelper.core.datastore.RecordModeSettings
+import me.neko.nzhelper.core.datastore.TagSettings
+import me.neko.nzhelper.core.datastore.UpdateSettings
+import me.neko.nzhelper.core.notification.LiveUpdateManager
+import me.neko.nzhelper.core.util.AvatarManager
+import me.neko.nzhelper.feature.lock.AppLockManager
+import me.neko.nzhelper.feature.lock.GestureLockManager
+import me.neko.nzhelper.feature.mine.components.ProfileSummaryCard
+import me.neko.nzhelper.feature.settings.components.AgePickerBottomSheet
+import me.neko.nzhelper.feature.settings.components.RecordModePickerBottomSheet
+import me.neko.nzhelper.navigation.floatingBarContentBottomInset
+import me.neko.nzhelper.ui.component.dialog.CustomAppAlertDialog
+import me.neko.nzhelper.ui.component.setting.SettingsCard
+import me.neko.nzhelper.ui.component.setting.SettingsItem
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+fun MineScreen(
+    rootNavController: NavController
+) {
+    val scrollBehavior =
+        TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    var crashLogCount by remember { mutableIntStateOf(CrashLogManager.listCrashLogs(context).size) }
+    var unreadCrashCount by remember { mutableIntStateOf(CrashLogManager.unreadCount(context)) }
+    var tagCount by remember { mutableIntStateOf(TagSettings.getTags(context).size) }
+    var birthDate by remember {
+        mutableStateOf(
+            if (AgeGroupSettings.isBirthDateSet(context))
+                AgeGroupSettings.getBirthDate(context)
+            else null
+        )
+    }
+    val age = remember(birthDate) {
+        birthDate?.let {
+            Period.between(it, LocalDate.now()).years
+                .coerceIn(AgeGroupSettings.MIN_AGE, AgeGroupSettings.MAX_AGE)
+        }
+    }
+    val ageDisplay = if (age != null) "当前：$age 岁" else "未设置"
+    var showAgeDialog by remember { mutableStateOf(false) }
+
+    var defaultMode by remember {
+        mutableStateOf(RecordModeSettings.getDefaultMode(context))
+    }
+    var showModeDialog by remember { mutableStateOf(false) }
+
+    var unlockedAchievementCount by remember {
+        mutableIntStateOf(AchievementRepository.unlockedCount(context))
+    }
+    var unseenAchievementCount by remember {
+        mutableIntStateOf(AchievementRepository.unseenCount(context))
+    }
+    var visibleAchievementTotal by remember {
+        mutableIntStateOf(AchievementRepository.visibleTotal(context))
+    }
+
+    val profileSummary by ProfileSummaryRepository.summary.collectAsState()
+
+    var avatarPath by remember { mutableStateOf(AvatarSettings.getAvatarPath(context)) }
+    var showAvatarDialog by remember { mutableStateOf(false) }
+
+    val pickAvatarLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                val savedPath = AvatarManager.saveImage(context, uri)
+                if (savedPath != null) {
+                    avatarPath = savedPath
+                    AvatarSettings.setAvatarPath(context, savedPath)
+                } else {
+                    Toast.makeText(context, "设置头像失败", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    val pickAvatar: () -> Unit = {
+        pickAvatarLauncher.launch(
+            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+        )
+    }
+
+    var lockEnabled by remember { mutableStateOf(AppLockManager.isLockEnabled(context)) }
+    var hasGesturePassword by remember {
+        mutableStateOf(GestureLockManager.hasGesturePassword(context))
+    }
+
+    var autoStartEnabled by remember {
+        mutableStateOf(
+            context.getSharedPreferences("settings_prefs", Context.MODE_PRIVATE)
+                .getBoolean("auto_start_timer", false)
+        )
+    }
+
+    var autoTagEnabled by remember {
+        mutableStateOf(AutoTagRules.isEnabled(context))
+    }
+    val toggleAutoTag: (Boolean) -> Unit = { enabled ->
+        autoTagEnabled = enabled
+        AutoTagRules.setEnabled(context, enabled)
+    }
+    var liveUpdatesEnabled by remember {
+        mutableStateOf(LiveUpdateManager.canPost(context))
+    }
+
+    suspend fun buildAiSubtitle(ctx: Context, enabled: Boolean): String {
+        if (!enabled) return "AI 分析记录数据 · 点击配置"
+        val p = AiSettings.getActiveProvider(ctx)
+        return if (p != null) "已启用模型：${p.model}"
+        else "已启用 · 点击配置"
+    }
+
+    var aiEnabled by remember { mutableStateOf(false) }
+    var aiSubtitle by remember { mutableStateOf("AI 分析记录数据 · 点击配置") }
+
+    LaunchedEffect(Unit) {
+        aiEnabled = AiSettings.isEnabled(context)
+        aiSubtitle = buildAiSubtitle(context, aiEnabled)
+    }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                scope.launch {
+                    tagCount = TagSettings.getTags(context).size
+                    crashLogCount = CrashLogManager.listCrashLogs(context).size
+                    unreadCrashCount = CrashLogManager.unreadCount(context)
+                    hasGesturePassword = GestureLockManager.hasGesturePassword(context)
+                    liveUpdatesEnabled = LiveUpdateManager.canPost(context)
+                    aiEnabled = AiSettings.isEnabled(context)
+                    aiSubtitle = buildAiSubtitle(context, aiEnabled)
+                    unlockedAchievementCount = AchievementRepository.unlockedCount(context)
+                    unseenAchievementCount = AchievementRepository.unseenCount(context)
+                    visibleAchievementTotal = AchievementRepository.visibleTotal(context)
+                    ProfileSummaryRepository.refresh(context)
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    val requestToggleLock: (Boolean) -> Unit = { targetState ->
+        val activity = context as? FragmentActivity
+        if (activity == null) {
+            Toast.makeText(context, "无法启动验证", Toast.LENGTH_SHORT).show()
+        } else if (targetState) {
+            when (AppLockManager.canAuthenticate(context)) {
+                BiometricManager.BIOMETRIC_SUCCESS -> {
+                    AppLockManager.authenticate(activity, onSuccess = {
+                        AppLockManager.setLockEnabled(context, true)
+                        lockEnabled = true
+                    })
+                }
+
+                BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> {
+                    Toast.makeText(
+                        context,
+                        "未设置锁屏密码或生物识别，请先在系统设置中配置",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+
+                else -> {
+                    Toast.makeText(context, "设备不支持生物识别或锁屏验证", Toast.LENGTH_LONG)
+                        .show()
+                }
+            }
+        } else {
+            AppLockManager.authenticate(activity, onSuccess = {
+                AppLockManager.setLockEnabled(context, false)
+                lockEnabled = false
+            })
+        }
+    }
+
+    val toggleAutoStart: (Boolean) -> Unit = { enabled ->
+        autoStartEnabled = enabled
+        context.getSharedPreferences("settings_prefs", Context.MODE_PRIVATE)
+            .edit { putBoolean("auto_start_timer", enabled) }
+    }
+
+    var checkUpdateEnabled by remember {
+        mutableStateOf(UpdateSettings.isCheckUpdateEnabled(context))
+    }
+    var betaUpdateEnabled by remember {
+        mutableStateOf(UpdateSettings.isBetaUpdateEnabled(context))
+    }
+    val toggleCheckUpdate: (Boolean) -> Unit = { enabled ->
+        checkUpdateEnabled = enabled
+        UpdateSettings.setCheckUpdateEnabled(context, enabled)
+    }
+    val toggleBetaUpdate: (Boolean) -> Unit = { enabled ->
+        betaUpdateEnabled = enabled
+        UpdateSettings.setBetaUpdateEnabled(context, enabled)
+    }
+
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        topBar = {
+            LargeFlexibleTopAppBar(
+                title = { Text("我的") },
+                scrollBehavior = scrollBehavior,
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer
+                )
+            )
+        },
+        contentWindowInsets = WindowInsets.safeDrawing.only(
+            WindowInsetsSides.Top + WindowInsetsSides.Horizontal
+        )
+    ) { innerPadding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .nestedScroll(scrollBehavior.nestedScrollConnection),
+            contentPadding = PaddingValues(
+                start = 16.dp,
+                end = 16.dp,
+                top = 16.dp,
+                bottom = 16.dp + floatingBarContentBottomInset()
+            ),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            item {
+                ProfileSummaryCard(
+                    totalCount = profileSummary.totalCount,
+                    totalSeconds = profileSummary.totalSeconds,
+                    companionDays = profileSummary.companionDays,
+                    unlockedAchievements = unlockedAchievementCount,
+                    totalAchievements = visibleAchievementTotal,
+                    unseenAchievements = unseenAchievementCount,
+                    avatarPath = avatarPath,
+                    onAvatarClick = {
+                        if (avatarPath == null) pickAvatar() else showAvatarDialog = true
+                    },
+                    onAchievementsClick = { rootNavController.navigate("achievement") }
+                )
+            }
+
+            item {
+                SettingsCard(title = "我的数据") {
+                    item {
+                        SettingsItem(
+                            icon = Icons.Outlined.Sell,
+                            title = "标签管理",
+                            subtitle = "分类 · 分组 · 标签（共 $tagCount 个标签）",
+                            onClick = { rootNavController.navigate("tag_manage") }
+                        )
+                    }
+                    item {
+                        SettingsItem(
+                            icon = Icons.Outlined.CloudSync,
+                            title = "备份与恢复",
+                            subtitle = "导出 / 导入 / WebDAV 云备份",
+                            onClick = { rootNavController.navigate("backup") }
+                        )
+                    }
+                    item {
+                        SettingsItem(
+                            icon = Icons.AutoMirrored.Outlined.ViewQuilt,
+                            title = "统计卡片管理",
+                            subtitle = "自定义统计页展示哪些图表卡片",
+                            onClick = { rootNavController.navigate("chart_manage") }
+                        )
+                    }
+                    item {
+                        SettingsItem(
+                            icon = Icons.Outlined.DeleteOutline,
+                            title = "回收站",
+                            subtitle = "管理已删除记录",
+                            onClick = { rootNavController.navigate("recycle_bin_settings") }
+                        )
+                    }
+                }
+            }
+
+            item {
+                SettingsCard(title = "个性化") {
+                    item {
+                        SettingsItem(
+                            icon = Icons.Outlined.Palette,
+                            title = "主题设置",
+                            subtitle = "外观模式 · 深色选项 · 动态取色",
+                            onClick = { rootNavController.navigate("theme_settings") }
+                        )
+                    }
+                    item {
+                        SettingsItem(
+                            icon = Icons.Outlined.Cake,
+                            title = "年龄",
+                            subtitle = ageDisplay,
+                            onClick = { showAgeDialog = true }
+                        )
+                    }
+                    item {
+                        SettingsItem(
+                            icon = Icons.Outlined.Male,
+                            title = "记录模式",
+                            subtitle = "默认：${defaultMode.label}",
+                            onClick = { showModeDialog = true }
+                        )
+                    }
+                }
+            }
+
+            item {
+                SettingsCard(title = "自动化") {
+                    item {
+                        SettingsItem(
+                            icon = Icons.Outlined.Timer,
+                            title = "自动计时",
+                            subtitle = "进入首页时自动开始计时",
+                            onClick = { toggleAutoStart(!autoStartEnabled) },
+                            trailingContent = {
+                                Switch(
+                                    checked = autoStartEnabled,
+                                    onCheckedChange = toggleAutoStart
+                                )
+                            }
+                        )
+                    }
+                    item {
+                        SettingsItem(
+                            icon = Icons.Outlined.NotificationsActive,
+                            title = "实况通知",
+                            subtitle = when {
+                                !LiveUpdateManager.isSupported() -> "需要 Android 16 或更高版本"
+                                liveUpdatesEnabled -> "已允许 · 计时可显示为系统实况通知"
+                                else -> "未允许 · 点击前往系统设置开启"
+                            },
+                            onClick = {
+                                if (LiveUpdateManager.isSupported()) {
+                                    LiveUpdateManager.openSettings(context)
+                                } else {
+                                    Toast.makeText(context, "当前系统不支持原生实况通知", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        )
+                    }
+                    item {
+                        SettingsItem(
+                            icon = Icons.Outlined.AutoAwesome,
+                            title = "自动标签",
+                            subtitle = "按时间/星期自动打标签",
+                            onClick = { toggleAutoTag(!autoTagEnabled) },
+                            trailingContent = {
+                                Switch(
+                                    checked = autoTagEnabled,
+                                    onCheckedChange = toggleAutoTag
+                                )
+                            }
+                        )
+                    }
+                    /* AI entry hidden in this fork (kept from local settings page)
+                    item {
+                        SettingsItem(
+                            icon = Icons.Outlined.SmartToy,
+                            title = "AI 健康建议",
+                            subtitle = aiSubtitle,
+                            onClick = { rootNavController.navigate("ai_config") }
+                        )
+                    }
+                    */
+                }
+            }
+
+            item {
+                SettingsCard(title = "隐私与安全") {
+                    item {
+                        SettingsItem(
+                            icon = Icons.Outlined.Lock,
+                            title = "应用锁",
+                            subtitle = "使用生物识别或锁屏密码解锁",
+                            onClick = { requestToggleLock(!lockEnabled) },
+                            trailingContent = {
+                                Switch(
+                                    checked = lockEnabled,
+                                    onCheckedChange = requestToggleLock
+                                )
+                            }
+                        )
+                    }
+                    item {
+                        SettingsItem(
+                            icon = Icons.Outlined.Gesture,
+                            title = "手势密码",
+                            subtitle = if (hasGesturePassword) "已开启，点击可设置" else "关闭，点击开启并设置",
+                            onClick = {
+                                rootNavController.navigate("gesture_lock")
+                            },
+                            trailingContent = {
+                                Switch(
+                                    checked = hasGesturePassword,
+                                    onCheckedChange = { targetState ->
+                                        if (targetState) {
+                                            rootNavController.navigate("gesture_lock")
+                                        } else {
+                                            GestureLockManager.clearGesturePassword(context)
+                                            hasGesturePassword = false
+                                            Toast.makeText(
+                                                context,
+                                                "已关闭并清除手势密码",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
+                                    }
+                                )
+                            }
+                        )
+                    }
+                }
+            }
+
+            item {
+                SettingsCard(title = "更新与诊断") {
+                    item {
+                        SettingsItem(
+                            icon = Icons.Outlined.Update,
+                            title = "检查新版本更新",
+                            subtitle = "启动时自动检查 GitHub 上的新版本",
+                            onClick = { toggleCheckUpdate(!checkUpdateEnabled) },
+                            trailingContent = {
+                                Switch(
+                                    checked = checkUpdateEnabled,
+                                    onCheckedChange = toggleCheckUpdate
+                                )
+                            }
+                        )
+                    }
+                    item {
+                        SettingsItem(
+                            icon = Icons.Outlined.Science,
+                            title = "获取测试版更新",
+                            subtitle = "启动时自动检测每次推送的最新 CI 构建版本",
+                            onClick = { toggleBetaUpdate(!betaUpdateEnabled) },
+                            trailingContent = {
+                                Switch(
+                                    checked = betaUpdateEnabled,
+                                    onCheckedChange = toggleBetaUpdate
+                                )
+                            }
+                        )
+                    }
+                    item {
+                        SettingsItem(
+                            icon = Icons.Outlined.BugReport,
+                            title = "崩溃日志",
+                            subtitle = when {
+                                crashLogCount == 0 -> "暂无崩溃记录"
+                                unreadCrashCount > 0 -> "共 $crashLogCount 条，$unreadCrashCount 条未读"
+                                else -> "共 $crashLogCount 条记录"
+                            },
+                            onClick = { rootNavController.navigate("crash_logs") },
+                            badgeText = if (unreadCrashCount > 0) "$unreadCrashCount" else null
+                        )
+                    }
+                }
+            }
+
+            item {
+                SettingsCard(title = "关于") {
+                    item {
+                        SettingsItem(
+                            icon = Icons.Outlined.Info,
+                            title = "关于",
+                            subtitle = "版本 ${BuildConfig.VERSION_NAME}",
+                            onClick = { rootNavController.navigate("about") }
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    if (showAgeDialog) {
+        AgePickerBottomSheet(
+            currentBirthDate = birthDate
+                ?: LocalDate.now().minusYears(AgeGroupSettings.DEFAULT_AGE.toLong()),
+            onConfirm = { selectedBirth ->
+                AgeGroupSettings.setBirthDate(context, selectedBirth)
+                birthDate = selectedBirth
+                showAgeDialog = false
+            },
+            onDismiss = { showAgeDialog = false }
+        )
+    }
+
+    if (showAvatarDialog) {
+        CustomAppAlertDialog(
+            onDismissRequest = { showAvatarDialog = false },
+            iconVector = Icons.Outlined.Person,
+            title = "自定义头像",
+            message = "可以重新选择一张图片，或者移除当前头像。",
+            confirmText = "更换头像",
+            confirmIcon = Icons.Outlined.Edit,
+            dismissText = "移除头像",
+            onConfirm = { pickAvatar() },
+            onDismiss = {
+                avatarPath = null
+                AvatarSettings.setAvatarPath(context, null)
+                scope.launch { AvatarManager.removeImage(context) }
+            }
+        )
+    }
+
+    if (showModeDialog) {
+        RecordModePickerBottomSheet(
+            currentMode = defaultMode,
+            onConfirm = { selected ->
+                RecordModeSettings.setDefaultMode(context, selected)
+                defaultMode = selected
+                showModeDialog = false
+            },
+            onDismiss = { showModeDialog = false }
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun MineScreenPreview() {
+    val navController = NavController(LocalContext.current)
+    MineScreen(rootNavController = navController)
+}

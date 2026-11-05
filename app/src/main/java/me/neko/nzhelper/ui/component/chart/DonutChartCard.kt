@@ -48,6 +48,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import me.neko.nzhelper.core.datastore.TagSettings
 import me.neko.nzhelper.core.model.Session
+import me.neko.nzhelper.core.model.allTagIds
 import me.neko.nzhelper.feature.statistics.model.PeriodType
 import me.neko.nzhelper.feature.statistics.util.isWithinPeriod
 import me.neko.nzhelper.ui.theme.TagColors
@@ -80,16 +81,17 @@ fun DonutChartCard(
             val filtered = sessions.filter {
                 isWithinPeriod(it.timestamp, currentTime, PeriodType.YEAR)
             }
+            val snapshots = filtered.flatMap { it.tagSnapshots.orEmpty() }.associateBy { it.id }
             when (selectedTabIndex) {
                 0 -> {
                     val counts = mutableMapOf<String, Int>()
                     for (s in filtered) {
-                        for (id in s.tagIds) {
+                        for (id in s.allTagIds()) {
                             counts[id] = (counts[id] ?: 0) + 1
                         }
                     }
                     val resolved = counts.entries.mapNotNull { (id, c) ->
-                        TagSettings.getTag(context, id)?.let { tag ->
+                        (snapshots[id] ?: TagSettings.getTag(context, id))?.let { tag ->
                             DonutSlice(tag.name, c, tag.color)
                         }
                     }
@@ -97,17 +99,18 @@ fun DonutChartCard(
                 }
 
                 1 -> {
-                    val groupCounts = mutableMapOf<String, Int>()
+                    // 按分组名聚合；分组已不存在时归入「其他」
+                    val groupCounts = mutableMapOf<Pair<String, String>, Int>()
                     for (s in filtered) {
-                        for (id in s.tagIds) {
-                            val tag = TagSettings.getTag(context, id) ?: continue
-                            groupCounts[tag.groupId] = (groupCounts[tag.groupId] ?: 0) + 1
+                        for (id in s.allTagIds()) {
+                            val tag = snapshots[id] ?: TagSettings.getTag(context, id) ?: continue
+                            val g = TagSettings.getGroup(context, tag.groupId)
+                            val key = (g?.name ?: "其他") to (g?.color ?: "slate")
+                            groupCounts[key] = (groupCounts[key] ?: 0) + 1
                         }
                     }
-                    val resolved = groupCounts.entries.mapNotNull { (gid, c) ->
-                        TagSettings.getGroup(context, gid)?.let { g ->
-                            DonutSlice(g.name, c, g.color)
-                        }
+                    val resolved = groupCounts.entries.map { (k, c) ->
+                        DonutSlice(k.first, c, k.second)
                     }
                     buildTopSlices(resolved)
                 }

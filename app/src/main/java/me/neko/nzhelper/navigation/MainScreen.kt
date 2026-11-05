@@ -2,6 +2,7 @@ package me.neko.nzhelper.navigation
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.provider.Settings
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
@@ -27,10 +28,12 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
@@ -40,18 +43,29 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.navigation.NavController
+import dev.chrisbanes.haze.hazeSource
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import me.neko.nzhelper.BuildConfig
-import me.neko.nzhelper.ui.component.dialog.CustomAppAlertDialog
+import me.neko.nzhelper.NzApplication
+import me.neko.nzhelper.core.achievement.AchievementRepository
+import me.neko.nzhelper.core.database.ProfileSummaryRepository
+import me.neko.nzhelper.core.datastore.UpdateSettings
+import me.neko.nzhelper.core.model.Session
+import me.neko.nzhelper.core.util.CiBuild
+import me.neko.nzhelper.core.util.UpdateChecker
+import me.neko.nzhelper.feature.achievement.components.AchievementUnlockDialog
+import me.neko.nzhelper.feature.addrecord.AddRecordFlow
 import me.neko.nzhelper.feature.history.HistoryScreen
 import me.neko.nzhelper.feature.home.HomeScreen
-import me.neko.nzhelper.feature.lock.LockScreen
 import me.neko.nzhelper.feature.lock.AppLockManager
 import me.neko.nzhelper.feature.lock.GestureLockManager
-import me.neko.nzhelper.feature.settings.SettingsScreen
+import me.neko.nzhelper.feature.lock.LockScreen
+import me.neko.nzhelper.feature.mine.MineScreen
 import me.neko.nzhelper.feature.statistics.StatisticsScreen
-import me.neko.nzhelper.core.util.UpdateChecker
+import me.neko.nzhelper.ui.component.dialog.CustomAppAlertDialog
+import me.neko.nzhelper.ui.theme.LocalHazeState
+import me.neko.nzhelper.ui.theme.LocalThemeState
 
 @Composable
 fun BottomNavigationBar(
@@ -151,6 +165,7 @@ fun MainScreen(
     val repo = "TakeoffRecorder"
     var showUpdateDialog by remember { mutableStateOf(false) }
     var latestTag by remember { mutableStateOf<String?>(null) }
+    var isCiUpdate by remember { mutableStateOf(false) }
 
     fun stripSuffix(version: String): String =
         version.trimStart('v', 'V').substringBefore('-')
@@ -178,20 +193,54 @@ fun MainScreen(
         return false
     }
 
+    data class LocalBuild(val basePrefix: String, val commitCount: Int, val shortHash: String)
+
+    fun parseLocalBuild(version: String): LocalBuild? {
+        val match = Regex("""(.*)\.r(\d+)\.([0-9a-f]+)$""").matchEntire(version)
+            ?: return null
+        val count = match.groupValues[2].toIntOrNull() ?: return null
+        return LocalBuild(match.groupValues[1], count, match.groupValues[3])
+    }
+
+    fun isCiNewer(local: LocalBuild, remote: CiBuild): Boolean =
+        remote.commitCount > local.commitCount ||
+                (remote.commitCount == local.commitCount && remote.shortHash != local.shortHash)
+
     LaunchedEffect(Unit) {
-        UpdateChecker.fetchLatestVersion(owner, repo)?.let { remoteVer ->
-            latestTag = remoteVer
-            if (isRemoteGreater(BuildConfig.VERSION_NAME, remoteVer)) {
-                showUpdateDialog = true
+        if (!UpdateSettings.isCheckUpdateEnabled(context)) return@LaunchedEffect
+        if (UpdateSettings.isBetaUpdateEnabled(context)) {
+            UpdateChecker.fetchLatestCiBuild(owner, repo)?.let { ci ->
+                val local = parseLocalBuild(BuildConfig.VERSION_NAME) ?: return@let
+                if (isCiNewer(local, ci)) {
+                    latestTag = "${local.basePrefix}.r${ci.commitCount}.${ci.shortHash}"
+                    isCiUpdate = true
+                    showUpdateDialog = true
+                }
+            }
+        } else {
+            UpdateChecker.fetchLatestRelease(owner, repo)?.let { release ->
+                val remoteVer = release.releaseName
+                latestTag = remoteVer
+                if (isRemoteGreater(BuildConfig.VERSION_NAME, remoteVer)) {
+                    isCiUpdate = false
+                    showUpdateDialog = true
+                }
             }
         }
     }
+
+    // ── 成就 ──
+    LaunchedEffect(Unit) {
+        AchievementRepository.sync(context)
+        ProfileSummaryRepository.refresh(context)
+    }
+    val pendingAchievementUnlocks by AchievementRepository.newUnlocks.collectAsState()
 
     // ── Pager 状态 ──
     val pagerState = rememberPagerState(pageCount = { BottomNavItem.items.size })
     val scope = rememberCoroutineScope()
     val stopRequestId by stopRequest?.collectAsState(initial = 0)
-        ?: remember { mutableStateOf(0) }
+        ?: remember { mutableIntStateOf(0) }
 
     LaunchedEffect(stopRequestId) {
         if (stopRequestId > 0) {
@@ -199,19 +248,33 @@ fun MainScreen(
         }
     }
 
+    fun openAddRecord(flow: AddRecordFlow, elapsedSeconds: Int, session: Session?) {
+        val editArg = session?.let {
+            "&editSession=${Uri.encode(NzApplication.gson.toJson(it))}"
+        } ?: ""
+        rootNavController.navigate(
+            "add_record?flow=${flow.key}&elapsed=$elapsedSeconds$editArg"
+        )
+    }
+
     // ── UI ──
+    val floatingBottomBar = LocalThemeState.current.floatingBottomBar
+    val blurEffect = LocalThemeState.current.blurEffect
+    val hazeState = LocalHazeState.current?.takeIf { floatingBottomBar && blurEffect }
+    val onPageSelected: (Int) -> Unit = { targetPage ->
+        scope.launch { pagerState.animateScrollToPage(targetPage) }
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             containerColor = MaterialTheme.colorScheme.surfaceContainer,
             bottomBar = {
-                BottomNavigationBar(
-                    pagerState = pagerState,
-                    onPageSelected = { targetPage ->
-                        scope.launch {
-                            pagerState.animateScrollToPage(targetPage)
-                        }
-                    }
-                )
+                if (!floatingBottomBar) {
+                    BottomNavigationBar(
+                        pagerState = pagerState,
+                        onPageSelected = onPageSelected
+                    )
+                }
             },
             contentWindowInsets = WindowInsets(0, 0, 0, 0)
         ) { innerPadding ->
@@ -219,7 +282,10 @@ fun MainScreen(
                 state = pagerState,
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(innerPadding),
+                    .padding(innerPadding)
+                    .then(
+                        if (hazeState != null) Modifier.hazeSource(hazeState) else Modifier
+                    ),
                 beyondViewportPageCount = 1
             ) { page ->
                 val isCurrentPage = pagerState.currentPage == page
@@ -228,15 +294,42 @@ fun MainScreen(
                     BottomNavItem.Home.route -> HomeScreen(
                         isActive = isCurrentPage,
                         stopRequestId = if (isLocked) 0 else stopRequestId,
-                        onStopRequestConsumed = onStopRequestConsumed
+                        onStopRequestConsumed = onStopRequestConsumed,
+                        onOpenAddRecord = { flow, elapsed ->
+                            openAddRecord(flow, elapsed, null)
+                        },
+                        onOpenHistory = {
+                            scope.launch {
+                                pagerState.animateScrollToPage(
+                                    BottomNavItem.items.indexOf(BottomNavItem.History)
+                                )
+                            }
+                        }
                     )
+
                     BottomNavItem.Statistics.route -> StatisticsScreen(isActive = isCurrentPage)
-                    BottomNavItem.History.route -> HistoryScreen(isActive = isCurrentPage)
-                    BottomNavItem.Settings.route -> SettingsScreen(
+                    BottomNavItem.History.route -> HistoryScreen(
+                        isActive = isCurrentPage,
+                        onEditRecord = { session ->
+                            openAddRecord(AddRecordFlow.EDIT, 0, session)
+                        }
+                    )
+
+                    BottomNavItem.Mine.route -> MineScreen(
                         rootNavController = rootNavController
                     )
                 }
             }
+        }
+
+        if (floatingBottomBar) {
+            FloatingBottomBar(
+                items = BottomNavItem.items,
+                pagerState = pagerState,
+                onItemClick = onPageSelected,
+                modifier = Modifier.align(Alignment.BottomCenter),
+                hazeState = hazeState
+            )
         }
 
         // 锁屏覆盖层
@@ -254,15 +347,21 @@ fun MainScreen(
                 title = "检测到新版本",
                 message = "当前版本：${BuildConfig.VERSION_NAME}\n" +
                         "最新版本：$latestTag\n\n" +
-                        "有新版本发布啦，是否前往 GitHub 下载？",
+                        if (isCiUpdate) {
+                            "检测到新的 CI 构建，是否前往 Telegram 频道下载？"
+                        } else {
+                            "有新版本发布啦，是否前往 GitHub 下载？"
+                        },
                 confirmText = "去下载",
                 confirmIcon = Icons.Default.Download,
                 dismissText = "稍后再说",
                 onConfirm = {
-                    val intent = Intent(
-                        Intent.ACTION_VIEW,
-                        "https://github.com/$owner/$repo/releases/latest".toUri()
-                    )
+                    val url = if (isCiUpdate) {
+                        "https://t.me/NzzHelper"
+                    } else {
+                        "https://github.com/$owner/$repo/releases/latest"
+                    }
+                    val intent = Intent(Intent.ACTION_VIEW, url.toUri())
                     context.startActivity(intent)
                 }
             )
@@ -280,6 +379,13 @@ fun MainScreen(
                 onConfirm = {
                     openNotificationSettings(context)
                 }
+            )
+        }
+
+        if (pendingAchievementUnlocks.isNotEmpty()) {
+            AchievementUnlockDialog(
+                achievements = pendingAchievementUnlocks,
+                onDismiss = { AchievementRepository.consumeNewUnlocks() }
             )
         }
     }
