@@ -34,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -43,6 +44,8 @@ import kotlinx.coroutines.withContext
 import me.neko.nzhelper.core.util.AvatarManager
 import me.neko.nzhelper.feature.statistics.util.formatDuration
 import me.neko.nzhelper.ui.component.setting.TrailingArrowIcon
+import me.neko.nzhelper.ui.theme.liquidGlassBorderColor
+import me.neko.nzhelper.ui.theme.liquidGlassContainerColor
 
 private val ProgressBarInset = 8.dp
 
@@ -72,8 +75,9 @@ fun ProfileSummaryCard(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceBright
-        )
+            containerColor = liquidGlassContainerColor()
+        ),
+        border = BorderStroke(1.dp, liquidGlassBorderColor())
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {

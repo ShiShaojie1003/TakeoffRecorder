@@ -5,6 +5,7 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -36,6 +37,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -45,6 +47,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import me.neko.nzhelper.ui.theme.LocalDarkMode
+import me.neko.nzhelper.ui.theme.liquidGlassBorderColor
+import me.neko.nzhelper.ui.theme.liquidGlassContainerColor
+import me.neko.nzhelper.ui.theme.liquidGlassHighlightColor
 
 val SettingsCornerRadius = 16.dp
 val SettingsConnectionRadius = 5.dp
@@ -124,22 +129,33 @@ fun SettingsCard(
 @Composable
 fun SettingsItemSurface(
     modifier: Modifier = Modifier,
-    containerColor: Color = MaterialTheme.colorScheme.surfaceBright,
+    containerColor: Color = liquidGlassContainerColor(),
     content: @Composable ColumnScope.() -> Unit
 ) {
     val corners = LocalSettingsItemCorners.current
+    val shape = RoundedCornerShape(
+        topStart = corners.topRadius,
+        topEnd = corners.topRadius,
+        bottomEnd = corners.bottomRadius,
+        bottomStart = corners.bottomRadius
+    )
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clip(
-                RoundedCornerShape(
-                    topStart = corners.topRadius,
-                    topEnd = corners.topRadius,
-                    bottomEnd = corners.bottomRadius,
-                    bottomStart = corners.bottomRadius
+            .clip(shape)
+            .background(containerColor)
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        liquidGlassHighlightColor(),
+                        Color.Transparent,
+                        Color.Transparent
+                    ),
+                    startY = 0f,
+                    endY = 96f
                 )
             )
-            .background(containerColor),
+            .border(1.dp, liquidGlassBorderColor(), shape),
         content = content
     )
 }
@@ -175,7 +191,19 @@ fun SettingsItemHost(
         modifier = modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(MaterialTheme.colorScheme.surfaceBright)
+            .background(liquidGlassContainerColor())
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        liquidGlassHighlightColor(),
+                        Color.Transparent,
+                        Color.Transparent
+                    ),
+                    startY = 0f,
+                    endY = 96f
+                )
+            )
+            .border(1.dp, liquidGlassBorderColor(), shape)
             .then(
                 if (onClick != null) {
                     Modifier.clickable(
@@ -243,7 +271,7 @@ fun SettingsItem(
     val containerColor = if (selected) {
         MaterialTheme.colorScheme.primaryContainer
     } else {
-        MaterialTheme.colorScheme.surfaceBright
+        liquidGlassContainerColor()
     }
     val defaultIconColor = if (LocalDarkMode.current) {
         MaterialTheme.colorScheme.onSurfaceVariant
@@ -265,6 +293,18 @@ fun SettingsItem(
             .fillMaxWidth()
             .clip(shape)
             .background(containerColor)
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        liquidGlassHighlightColor(),
+                        Color.Transparent,
+                        Color.Transparent
+                    ),
+                    startY = 0f,
+                    endY = 96f
+                )
+            )
+            .border(1.dp, liquidGlassBorderColor(), shape)
             .clickable(
                 enabled = enabled,
                 interactionSource = interactionSource,
