@@ -140,7 +140,13 @@ fun NzHelperTheme(
             colorScheme.copy(
                 background = AmoledBlack,
                 surface = AmoledBlack,
-                surfaceContainer = AmoledBlack
+                surfaceContainer = AmoledBlack,
+                surfaceContainerLow = AmoledBlack,
+                surfaceContainerLowest = AmoledBlack,
+                surfaceBright = Color(0xFF0A0A0A),
+                surfaceContainerHigh = Color(0xFF0E0E0E),
+                surfaceContainerHighest = Color(0xFF141414),
+                surfaceDim = AmoledBlack
             )
         } else {
             colorScheme
