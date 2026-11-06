@@ -70,10 +70,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import java.time.LocalDate
-import kotlinx.coroutines.launch
-import me.neko.nzhelper.core.ai.AiAnalyzer
-import me.neko.nzhelper.core.ai.AiSettings
-import me.neko.nzhelper.core.ai.AiUsage
+import java.time.LocalDateTime
 import me.neko.nzhelper.core.database.SessionRepository
 import me.neko.nzhelper.core.database.StatisticsRepository
 import me.neko.nzhelper.core.datastore.AgeGroupSettings
@@ -81,13 +78,12 @@ import me.neko.nzhelper.core.datastore.TimerSettings
 import me.neko.nzhelper.core.model.Session
 import me.neko.nzhelper.core.service.TimerService
 import me.neko.nzhelper.feature.addrecord.AddRecordFlow
-import me.neko.nzhelper.feature.home.components.analyzeHealthTip
 import me.neko.nzhelper.feature.home.components.ConfirmResetDialog
 import me.neko.nzhelper.feature.home.components.ConfirmStopDialog
-import me.neko.nzhelper.feature.home.components.HealthTipCard
+import me.neko.nzhelper.feature.home.components.RecentRecordsCard
 import me.neko.nzhelper.feature.home.components.TimerCard
+import me.neko.nzhelper.feature.history.components.SessionDetailDialog
 import me.neko.nzhelper.navigation.floatingBarContentBottomInset
-import me.neko.nzhelper.NzApplication
 import me.neko.nzhelper.ui.component.dialog.CustomAppAlertDialog
 
 @OptIn(
@@ -100,7 +96,8 @@ fun HomeScreen(
     stopRequestId: Int = 0,
     onStopRequestConsumed: (Int) -> Unit = {},
     onOpenAddRecord: (AddRecordFlow, Int) -> Unit = { _, _ -> },
-    onOpenHistory: () -> Unit = {}
+    onOpenHistory: () -> Unit = {},
+    onOpenEditRecord: (Session) -> Unit = {}
 ) {
     val context = LocalContext.current
     val scrollBehavior =
@@ -210,22 +207,16 @@ fun HomeScreen(
         derivedStateOf { StatisticsRepository.calculateLatestInfo(sessions) }
     }
 
-    val healthTip by remember(sessions) {
-        derivedStateOf { analyzeHealthTip(sessions) }
+    // 最近记录：优先展示最近七天；七天内无记录则回退为最近三条
+    val recentRecords by remember(sessions) {
+        derivedStateOf {
+            val weekAgo = LocalDateTime.now().minusDays(7)
+            val inWeek = sessions.filter { !it.timestamp.isBefore(weekAgo) }
+            if (inWeek.isNotEmpty()) inWeek else sessions.take(3)
+        }
     }
 
-    var aiHealthTip by remember { mutableStateOf<String?>(null) }
-    var aiLoading by remember { mutableStateOf(false) }
-    var aiError by remember { mutableStateOf<String?>(null) }
-    var aiUsage by remember { mutableStateOf<AiUsage?>(null) }
-    var lastSessionCount by remember { mutableIntStateOf(0) }
-    var showAiCard by remember { mutableStateOf(false) }
-
-    LaunchedEffect(Unit) {
-        aiHealthTip = AiSettings.getLastAiText(context)
-        aiUsage = AiSettings.getLastAiUsage(context)
-        showAiCard = AiSettings.isEnabled(context)
-    }
+    var detailSession by remember { mutableStateOf<Session?>(null) }
 
     val birthdayGreeting = remember {
         try {
@@ -237,51 +228,6 @@ fun HomeScreen(
             else null
         } catch (_: Exception) {
             null
-        }
-    }
-
-    fun refreshAi() {
-        aiLoading = true
-        NzApplication.appScope.launch {
-            if (!AiSettings.isEnabled(context) || !AiSettings.isConfigured(context)) {
-                aiLoading = false
-                return@launch
-            }
-            val result = AiAnalyzer.analyze(context, sessions)
-            result.fold(
-                onSuccess = {
-                    aiHealthTip = it.text; aiError = null; aiUsage = it.usage
-                    AiSettings.setLastRefreshTime(context, System.currentTimeMillis())
-                    AiSettings.saveLastAiResponse(context, it.text, it.usage)
-                },
-                onFailure = {
-                    aiHealthTip = "❌ ${it.message ?: "未知错误"}"; aiError = it.message; aiUsage =
-                    null
-                }
-            )
-            aiLoading = false
-        }
-    }
-
-    LaunchedEffect(sessions.size) {
-        if (sessions.isEmpty()) return@LaunchedEffect
-        if (!AiSettings.isEnabled(context) || !AiSettings.isConfigured(context)) {
-            showAiCard = false
-            return@LaunchedEffect
-        }
-        showAiCard = true
-
-        val newRecordAdded = sessions.size > lastSessionCount && lastSessionCount > 0
-        lastSessionCount = sessions.size
-
-        val intervalMin = AiSettings.getRefreshIntervalMin(context)
-        val lastRefresh = AiSettings.getLastRefreshTime(context)
-        val now = System.currentTimeMillis()
-        val shouldRefresh = newRecordAdded ||
-                (intervalMin > 0 && (lastRefresh == 0L || now - lastRefresh > intervalMin * 60_000L))
-
-        if (shouldRefresh) {
-            refreshAi()
         }
     }
 
@@ -379,21 +325,26 @@ fun HomeScreen(
                         BirthdayCard(message = birthdayGreeting)
                     }
                 }
-                if (showAiCard || healthTip != null) {
-                    item {
-                        HealthTipCard(
-                            tip = healthTip,
-                            aiEnabled = showAiCard,
-                            aiTip = aiHealthTip,
-                            aiLoading = aiLoading,
-                            errorText = aiError,
-                            usage = aiUsage,
-                            onRefreshAi = { refreshAi() }
-                        )
-                    }
+                item {
+                    RecentRecordsCard(
+                        records = recentRecords,
+                        onRecordClick = { detailSession = it }
+                    )
                 }
             }
         }
+    }
+
+    detailSession?.let { session ->
+        SessionDetailDialog(
+            session = session,
+            onDismiss = { detailSession = null },
+            onEditClick = {
+                val target = session
+                detailSession = null
+                onOpenEditRecord(target)
+            }
+        )
     }
 
     if (showOverlayPermissionDialog) {

@@ -298,6 +298,9 @@ fun MainScreen(
                         onOpenAddRecord = { flow, elapsed ->
                             openAddRecord(flow, elapsed, null)
                         },
+                        onOpenEditRecord = { session ->
+                            openAddRecord(AddRecordFlow.EDIT, 0, session)
+                        },
                         onOpenHistory = {
                             scope.launch {
                                 pagerState.animateScrollToPage(
