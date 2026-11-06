@@ -18,7 +18,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.automirrored.outlined.ViewQuilt
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoAwesome
-import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.Cake
 import androidx.compose.material.icons.outlined.CloudSync
 import androidx.compose.material.icons.outlined.DeleteOutline
@@ -30,11 +29,9 @@ import androidx.compose.material.icons.outlined.Male
 import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.Science
 import androidx.compose.material.icons.outlined.Sell
 import androidx.compose.material.icons.outlined.SmartToy
 import androidx.compose.material.icons.outlined.Timer
-import androidx.compose.material.icons.outlined.Update
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.LargeFlexibleTopAppBar
@@ -72,13 +69,11 @@ import me.neko.nzhelper.BuildConfig
 import me.neko.nzhelper.core.achievement.AchievementRepository
 import me.neko.nzhelper.core.ai.AiSettings
 import me.neko.nzhelper.core.auto.AutoTagRules
-import me.neko.nzhelper.core.crash.CrashLogManager
 import me.neko.nzhelper.core.database.ProfileSummaryRepository
 import me.neko.nzhelper.core.datastore.AgeGroupSettings
 import me.neko.nzhelper.core.datastore.AvatarSettings
 import me.neko.nzhelper.core.datastore.RecordModeSettings
 import me.neko.nzhelper.core.datastore.TagSettings
-import me.neko.nzhelper.core.datastore.UpdateSettings
 import me.neko.nzhelper.core.notification.LiveUpdateManager
 import me.neko.nzhelper.core.util.AvatarManager
 import me.neko.nzhelper.feature.lock.AppLockManager
@@ -102,8 +97,6 @@ fun MineScreen(
     val scope = rememberCoroutineScope()
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    var crashLogCount by remember { mutableIntStateOf(CrashLogManager.listCrashLogs(context).size) }
-    var unreadCrashCount by remember { mutableIntStateOf(CrashLogManager.unreadCount(context)) }
     var tagCount by remember { mutableIntStateOf(TagSettings.getTags(context).size) }
     var birthDate by remember {
         mutableStateOf(
@@ -206,8 +199,6 @@ fun MineScreen(
             if (event == Lifecycle.Event.ON_RESUME) {
                 scope.launch {
                     tagCount = TagSettings.getTags(context).size
-                    crashLogCount = CrashLogManager.listCrashLogs(context).size
-                    unreadCrashCount = CrashLogManager.unreadCount(context)
                     hasGesturePassword = GestureLockManager.hasGesturePassword(context)
                     liveUpdatesEnabled = LiveUpdateManager.canPost(context)
                     aiEnabled = AiSettings.isEnabled(context)
@@ -261,21 +252,6 @@ fun MineScreen(
         autoStartEnabled = enabled
         context.getSharedPreferences("settings_prefs", Context.MODE_PRIVATE)
             .edit { putBoolean("auto_start_timer", enabled) }
-    }
-
-    var checkUpdateEnabled by remember {
-        mutableStateOf(UpdateSettings.isCheckUpdateEnabled(context))
-    }
-    var betaUpdateEnabled by remember {
-        mutableStateOf(UpdateSettings.isBetaUpdateEnabled(context))
-    }
-    val toggleCheckUpdate: (Boolean) -> Unit = { enabled ->
-        checkUpdateEnabled = enabled
-        UpdateSettings.setCheckUpdateEnabled(context, enabled)
-    }
-    val toggleBetaUpdate: (Boolean) -> Unit = { enabled ->
-        betaUpdateEnabled = enabled
-        UpdateSettings.setBetaUpdateEnabled(context, enabled)
     }
 
     Scaffold(
@@ -492,52 +468,6 @@ fun MineScreen(
                                     }
                                 )
                             }
-                        )
-                    }
-                }
-            }
-
-            item {
-                SettingsCard(title = "更新与诊断") {
-                    item {
-                        SettingsItem(
-                            icon = Icons.Outlined.Update,
-                            title = "检查新版本更新",
-                            subtitle = "启动时自动检查 GitHub 上的新版本",
-                            onClick = { toggleCheckUpdate(!checkUpdateEnabled) },
-                            trailingContent = {
-                                Switch(
-                                    checked = checkUpdateEnabled,
-                                    onCheckedChange = toggleCheckUpdate
-                                )
-                            }
-                        )
-                    }
-                    item {
-                        SettingsItem(
-                            icon = Icons.Outlined.Science,
-                            title = "获取测试版更新",
-                            subtitle = "启动时自动检测每次推送的最新 CI 构建版本",
-                            onClick = { toggleBetaUpdate(!betaUpdateEnabled) },
-                            trailingContent = {
-                                Switch(
-                                    checked = betaUpdateEnabled,
-                                    onCheckedChange = toggleBetaUpdate
-                                )
-                            }
-                        )
-                    }
-                    item {
-                        SettingsItem(
-                            icon = Icons.Outlined.BugReport,
-                            title = "崩溃日志",
-                            subtitle = when {
-                                crashLogCount == 0 -> "暂无崩溃记录"
-                                unreadCrashCount > 0 -> "共 $crashLogCount 条，$unreadCrashCount 条未读"
-                                else -> "共 $crashLogCount 条记录"
-                            },
-                            onClick = { rootNavController.navigate("crash_logs") },
-                            badgeText = if (unreadCrashCount > 0) "$unreadCrashCount" else null
                         )
                     }
                 }
