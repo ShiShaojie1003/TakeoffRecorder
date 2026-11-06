@@ -18,8 +18,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -36,16 +34,14 @@ import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Replay
 import androidx.compose.material.icons.rounded.Stop
-import androidx.compose.material3.ButtonGroupDefaults
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.ToggleButton
-import androidx.compose.material3.ToggleButtonDefaults
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -65,7 +61,6 @@ import me.neko.nzhelper.core.util.formatTime
 import me.neko.nzhelper.feature.statistics.model.LatestSessionInfo
 import me.neko.nzhelper.ui.component.setting.TrailingArrowIcon
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalLayoutApi::class)
 @Composable
 fun TimerCard(
     elapsedSeconds: Int,
@@ -380,7 +375,6 @@ private fun LastSessionRow(
     }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalLayoutApi::class)
 @Composable
 private fun TimerActionGroup(
     isRunning: Boolean,
@@ -390,76 +384,63 @@ private fun TimerActionGroup(
     modifier: Modifier = Modifier
 ) {
     val colorScheme = MaterialTheme.colorScheme
-
     val actionHeight = 52.dp
+    val buttonShape = RoundedCornerShape(16.dp)
 
-    val resetColors = ToggleButtonDefaults.colors(
-        containerColor = colorScheme.surfaceContainerHigh,
-        contentColor = colorScheme.onSurfaceVariant,
-        checkedContainerColor = colorScheme.surfaceContainerHigh,
-        checkedContentColor = colorScheme.onSurfaceVariant
-    )
-    val stopColors = ToggleButtonDefaults.colors(
-        containerColor = colorScheme.errorContainer,
-        contentColor = colorScheme.onErrorContainer,
-        checkedContainerColor = colorScheme.errorContainer,
-        checkedContentColor = colorScheme.onErrorContainer
-    )
-    val runColors = ToggleButtonDefaults.colors(
-        containerColor = if (isRunning) colorScheme.tertiary else colorScheme.primary,
-        contentColor = if (isRunning) colorScheme.onTertiary else colorScheme.onPrimary,
-        checkedContainerColor = if (isRunning) colorScheme.tertiary else colorScheme.primary,
-        checkedContentColor = if (isRunning) colorScheme.onTertiary else colorScheme.onPrimary
-    )
-
-    FlowRow(
+    Row(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        ToggleButton(
-            checked = false,
-            onCheckedChange = { onReset() },
-            modifier = Modifier.height(actionHeight),
-            shapes = ButtonGroupDefaults.connectedLeadingButtonShapes(
-                checkedShape = ButtonGroupDefaults.connectedLeadingButtonShape
-            ),
-            colors = resetColors,
-        ) {
-            Icon(Icons.Rounded.Replay, null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.size(ToggleButtonDefaults.IconSpacing))
-            Text("重置")
-        }
-        ToggleButton(
-            checked = false,
-            onCheckedChange = { onToggleRun() },
+        Button(
+            onClick = onReset,
             modifier = Modifier
                 .weight(1f)
                 .height(actionHeight),
-            shapes = ButtonGroupDefaults.connectedMiddleButtonShapes(
-                shape = ButtonGroupDefaults.connectedButtonCheckedShape
-            ),
-            colors = runColors,
+            shape = buttonShape,
+            elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = colorScheme.surfaceContainerHigh,
+                contentColor = colorScheme.onSurfaceVariant
+            )
+        ) {
+            Icon(Icons.Rounded.Replay, null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.size(6.dp))
+            Text("重置")
+        }
+        Button(
+            onClick = onToggleRun,
+            modifier = Modifier
+                .weight(1f)
+                .height(actionHeight),
+            shape = buttonShape,
+            elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = if (isRunning) colorScheme.tertiary else colorScheme.primary,
+                contentColor = if (isRunning) colorScheme.onTertiary else colorScheme.onPrimary
+            )
         ) {
             Icon(
                 imageVector = if (isRunning) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                 contentDescription = null,
                 modifier = Modifier.size(20.dp)
             )
-            Spacer(Modifier.size(ToggleButtonDefaults.IconSpacing))
+            Spacer(Modifier.size(6.dp))
             Text(if (isRunning) "暂停" else "开始")
         }
-        ToggleButton(
-            checked = false,
-            onCheckedChange = { onStop() },
-            modifier = Modifier.height(actionHeight),
-            shapes = ButtonGroupDefaults.connectedTrailingButtonShapes(
-                checkedShape = ButtonGroupDefaults.connectedTrailingButtonShape
-            ),
-            colors = stopColors,
+        Button(
+            onClick = onStop,
+            modifier = Modifier
+                .weight(1f)
+                .height(actionHeight),
+            shape = buttonShape,
+            elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = colorScheme.errorContainer,
+                contentColor = colorScheme.onErrorContainer
+            )
         ) {
             Icon(Icons.Rounded.Stop, null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.size(ToggleButtonDefaults.IconSpacing))
+            Spacer(Modifier.size(6.dp))
             Text("结束")
         }
     }
