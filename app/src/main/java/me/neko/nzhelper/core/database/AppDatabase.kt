@@ -27,7 +27,7 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         TaxonomyEntity::class,
         AiConfigEntity::class
     ],
-    version = 3,
+    version = 7,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -39,7 +39,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun aiConfigDao(): AiConfigDao
 
     companion object {
-        private const val DB_NAME = "records.db"
+        internal const val DB_NAME = "records.db"
 
         @Volatile
         private var instance: AppDatabase? = null
@@ -48,6 +48,13 @@ abstract class AppDatabase : RoomDatabase() {
             return instance ?: synchronized(this) {
                 instance ?: build(context).also { instance = it }
             }
+        }
+
+        @Synchronized
+        fun releaseInstance() {
+            val current = instance ?: return
+            instance = null
+            runCatching { current.close() }
         }
 
         private fun build(context: Context): AppDatabase {
@@ -60,7 +67,14 @@ abstract class AppDatabase : RoomDatabase() {
                 DB_NAME
             )
                 .openHelperFactory(factory)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(
+                    MIGRATION_1_2,
+                    MIGRATION_2_3,
+                    MIGRATION_3_4,
+                    MIGRATION_4_5,
+                    MIGRATION_5_6,
+                    MIGRATION_6_7
+                )
                 .fallbackToDestructiveMigration(dropAllTables = true)
                 .build()
         }
@@ -94,6 +108,71 @@ abstract class AppDatabase : RoomDatabase() {
                             "`key` TEXT NOT NULL, " +
                             "`value` TEXT NOT NULL, " +
                             "PRIMARY KEY(`key`))"
+                )
+            }
+        }
+
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE `sessions` ADD COLUMN `mode` TEXT NOT NULL DEFAULT 'SOLO_MALE'"
+                )
+                db.execSQL(
+                    "ALTER TABLE `sessions` ADD COLUMN `climaxCount` INTEGER NOT NULL DEFAULT 0"
+                )
+                db.execSQL(
+                    "ALTER TABLE `sessions` ADD COLUMN `partnerClimaxCount` INTEGER NOT NULL DEFAULT 0"
+                )
+                db.execSQL(
+                    "ALTER TABLE `sessions` ADD COLUMN `partnerGender` TEXT NOT NULL DEFAULT ''"
+                )
+                db.execSQL(
+                    "ALTER TABLE `sessions` ADD COLUMN `partnerName` TEXT NOT NULL DEFAULT ''"
+                )
+                db.execSQL(
+                    "ALTER TABLE `sessions` ADD COLUMN `contraception` TEXT NOT NULL DEFAULT ''"
+                )
+                db.execSQL(
+                    "UPDATE `sessions` SET `climaxCount` = CASE WHEN `climax` = 1 THEN 1 ELSE 0 END"
+                )
+            }
+        }
+
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE `sessions` ADD COLUMN `partnersJson` TEXT NOT NULL DEFAULT '[]'"
+                )
+                db.execSQL(
+                    "ALTER TABLE `sessions` ADD COLUMN `initiator` TEXT NOT NULL DEFAULT ''"
+                )
+                db.execSQL(
+                    "ALTER TABLE `sessions` ADD COLUMN `moodsJson` TEXT NOT NULL DEFAULT '[]'"
+                )
+                db.execSQL(
+                    "ALTER TABLE `sessions` ADD COLUMN `positionsJson` TEXT NOT NULL DEFAULT '[]'"
+                )
+                db.execSQL(
+                    "ALTER TABLE `sessions` ADD COLUMN `toysJson` TEXT NOT NULL DEFAULT '[]'"
+                )
+                db.execSQL(
+                    "ALTER TABLE `sessions` ADD COLUMN `ejaculation` TEXT NOT NULL DEFAULT ''"
+                )
+            }
+        }
+
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE `sessions` ADD COLUMN `locationsJson` TEXT NOT NULL DEFAULT '[]'"
+                )
+            }
+        }
+
+        private val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE `sessions` ADD COLUMN `tagSnapshotsJson` TEXT NOT NULL DEFAULT '[]'"
                 )
             }
         }

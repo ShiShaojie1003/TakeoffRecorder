@@ -33,6 +33,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import me.neko.nzhelper.core.datastore.TagSettings
 import me.neko.nzhelper.core.model.Session
+import me.neko.nzhelper.core.model.allTagIds
 import me.neko.nzhelper.core.model.TagDef
 import me.neko.nzhelper.feature.statistics.model.PeriodType
 import me.neko.nzhelper.feature.statistics.util.isWithinPeriod
@@ -62,10 +63,11 @@ fun TagComboCard(
             val filtered = sessions.filter {
                 isWithinPeriod(it.timestamp, currentTime, PeriodType.YEAR)
             }
+            val snapshots = filtered.flatMap { it.tagSnapshots.orEmpty() }.associateBy { it.id }
             val setCounts = mutableMapOf<List<String>, Int>()
             for (s in filtered) {
-                if (s.tagIds.size < 2) continue
-                val key = s.tagIds.distinct().sorted()
+                if (s.allTagIds().size < 2) continue
+                val key = s.allTagIds().distinct().sorted()
                 setCounts[key] = (setCounts[key] ?: 0) + 1
             }
             setCounts.entries
@@ -73,7 +75,7 @@ fun TagComboCard(
                 .take(6)
                 .map { (ids, count) ->
                     TagCombo(
-                        tags = ids.mapNotNull { TagSettings.getTag(context, it) },
+                        tags = ids.mapNotNull { snapshots[it] ?: TagSettings.getTag(context, it) },
                         count = count
                     )
                 }

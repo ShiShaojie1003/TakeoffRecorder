@@ -40,6 +40,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import me.neko.nzhelper.core.datastore.TagSettings
 import me.neko.nzhelper.core.model.Session
+import me.neko.nzhelper.core.model.allTagIds
 import me.neko.nzhelper.feature.statistics.model.PeriodType
 import me.neko.nzhelper.feature.statistics.model.TagStat
 import me.neko.nzhelper.feature.statistics.util.isWithinPeriod
@@ -66,9 +67,10 @@ fun TagBarChartCard(
             val filtered = sessions.filter {
                 isWithinPeriod(it.timestamp, currentTime, PeriodType.YEAR)
             }
+            val snapshots = filtered.flatMap { it.tagSnapshots.orEmpty() }.associateBy { it.id }
             val counts = mutableMapOf<String, Int>()
             for (s in filtered) {
-                for (id in s.tagIds) {
+                for (id in s.allTagIds()) {
                     counts[id] = (counts[id] ?: 0) + 1
                 }
             }
@@ -76,7 +78,7 @@ fun TagBarChartCard(
                 .sortedByDescending { it.value }
                 .take(10)
                 .mapNotNull { (id, c) ->
-                    TagSettings.getTag(context, id)?.let { tag ->
+                    (snapshots[id] ?: TagSettings.getTag(context, id))?.let { tag ->
                         TagStat(tag.id, tag.name, tag.color, tag.icon, c)
                     }
                 }

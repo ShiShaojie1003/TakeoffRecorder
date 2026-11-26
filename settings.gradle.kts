@@ -24,5 +24,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "NzHelper"
+rootProject.name = "TakeoffRecorder"
 include(":app")

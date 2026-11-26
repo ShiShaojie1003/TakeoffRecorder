@@ -9,7 +9,8 @@ fun getGitCommitCount(): Int {
         val process = ProcessBuilder("git", "rev-list", "--count", "HEAD")
             .redirectErrorStream(true)
             .start()
-        process.inputStream.bufferedReader().readText().trim().toInt()
+        val output = process.inputStream.bufferedReader().readText().trim()
+        if (process.waitFor() == 0) output.toIntOrNull() ?: 1 else 1
     } catch (_: Exception) {
         1 // fallback
     }
@@ -20,15 +21,21 @@ fun getGitShortHash(): String {
         val process = ProcessBuilder("git", "rev-parse", "--short", "HEAD")
             .redirectErrorStream(true)
             .start()
-        process.inputStream.bufferedReader().readText().trim()
+        val output = process.inputStream.bufferedReader().readText().trim()
+        if (process.waitFor() == 0) {
+            // Keep the generated APK filename portable, especially on Windows.
+            output.replace(Regex("[^A-Za-z0-9._-]"), "").ifBlank { "nogit" }
+        } else {
+            "nogit"
+        }
     } catch (_: Exception) {
-        "unknown"
+        "nogit"
     }
 }
 
-val commitCount = getGitCommitCount()
+val commitCount = getGitCommitCount() + 1001
 val gitHash = getGitShortHash()
-val versionNameStr = "1.0.4-alpha.r$commitCount.$gitHash"
+val versionNameStr = "1.2.0"
 
 val releaseKeystoreFile: String? = providers.environmentVariable("NZH_KEYSTORE_FILE").orNull
 val releaseKeystorePassword: String? = providers.environmentVariable("NZH_KEYSTORE_PASSWORD").orNull
@@ -44,7 +51,7 @@ android {
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "me.neko.nzhelper"
+        applicationId = "me.neko.TakeoffRecorder"
         minSdk = 27
         targetSdk = 37
 
@@ -97,7 +104,7 @@ android {
 androidComponents {
     onVariants { variant ->
         variant.outputs.forEach { output ->
-            output.outputFileName.set("NzHelper_v${versionNameStr}_${variant.name}.apk")
+            output.outputFileName.set("TakeoffRecorder_v${versionNameStr}_${variant.name}.apk")
         }
     }
 }
@@ -141,6 +148,9 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
     implementation(libs.sqlcipher)
+    implementation(libs.haze)
+    implementation(libs.haze.blur)
+    implementation(libs.haze.blur.material3)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

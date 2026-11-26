@@ -14,6 +14,25 @@ data class Session(
     @SerializedName("categoryId") val categoryId: String = DEFAULT_CATEGORY_ID,
     @SerializedName("tagIds") val tagIds: List<String> = emptyList(),
 
+    @SerializedName("tagSnapshots") val tagSnapshots: List<TagDef> = emptyList(),
+
+    // ── 记录模式（男性单人 / 女性单人 / 双人）──
+    @SerializedName("mode") val mode: String = SessionMode.SOLO_MALE.key,
+    @SerializedName("climaxCount") val climaxCount: Int = 0,
+    @SerializedName("partnerClimaxCount") val partnerClimaxCount: Int = 0,
+    @SerializedName("partnerGender") val partnerGender: String = "",
+    @SerializedName("partnerName") val partnerName: String = "",
+    @SerializedName("contraception") val contraception: String = "",
+
+    // ── 双人记录扩展 ──
+    @SerializedName("partners") val partners: List<String> = emptyList(),
+    @SerializedName("initiator") val initiator: String = "",
+    @SerializedName("moods") val moods: List<String> = emptyList(),
+    @SerializedName("positions") val positions: List<String> = emptyList(),
+    @SerializedName("toys") val toys: List<String> = emptyList(),
+    @SerializedName("ejaculation") val ejaculation: String = "",
+    @SerializedName("locations") val locations: List<String> = emptyList(),
+
     // ── legacy（仅兼容旧数据 / 迁移用）──
     @SerializedName("location") val location: String = "",
     @SerializedName("watchedMovie") val watchedMovie: Boolean = false,
@@ -23,6 +42,46 @@ data class Session(
     companion object {
         const val DEFAULT_CATEGORY_ID: String = "cat_self"
     }
+
+    fun normalized(): Session =
+        if (climaxCount > 0 || !climax) this else copy(climaxCount = 1)
+}
+
+fun Session.sessionMode(): SessionMode = SessionMode.fromKey(mode)
+
+fun Session.allTagIds(): List<String> =
+    (tagIds + locations + moods + positions + toys +
+            listOfNotNull(ejaculation.takeIf { it.isNotBlank() })).distinct()
+
+fun SessionFormState.toSession(
+    timestamp: LocalDateTime,
+    duration: Int,
+    categoryId: String,
+    tagIds: List<String>
+): Session {
+    val isPair = SessionMode.fromKey(mode).isPair
+    return Session(
+        timestamp = timestamp,
+        duration = duration,
+        remark = remark,
+        rating = rating,
+        climax = false,
+        categoryId = categoryId,
+        tagIds = tagIds,
+        mode = mode,
+        climaxCount = climaxCount,
+        partnerClimaxCount = if (isPair) partnerClimaxCount else 0,
+        partnerGender = if (isPair) partnerGender else "",
+        partnerName = if (isPair) partnerName else "",
+        contraception = if (isPair) contraception else "",
+        partners = if (isPair) partners.toList() else emptyList(),
+        initiator = if (isPair) initiator else "",
+        locations = locations.toList(),
+        moods = moods.toList(),
+        positions = if (isPair) positions.toList() else emptyList(),
+        toys = if (isPair) toys.toList() else emptyList(),
+        ejaculation = if (isPair) ejaculation else ""
+    )
 }
 
 @Immutable
@@ -33,15 +92,25 @@ data class RecycleBinItem(
 
 @Immutable
 data class WebDavBackupPayload(
-    @SerializedName("version") val version: Int = 2,
+    @SerializedName("version") val version: Int = 3,
     @SerializedName("exportedAt") val exportedAt: Long,
-    @SerializedName("sessions") val sessions: List<Session> = emptyList(),
-    @SerializedName("recycleBin") val recycleBin: List<RecycleBinItem> = emptyList(),
-    @SerializedName("categories") val categories: List<CategoryDef> = emptyList(),
-    @SerializedName("tagGroups") val tagGroups: List<TagGroupDef> = emptyList(),
-    @SerializedName("tags") val tags: List<TagDef> = emptyList(),
+    @SerializedName("sessions") val sessions: List<Session>? = emptyList(),
+    @SerializedName("recycleBin") val recycleBin: List<RecycleBinItem>? = emptyList(),
+    @SerializedName("categories") val categories: List<CategoryDef>? = emptyList(),
+    @SerializedName("tagGroups") val tagGroups: List<TagGroupDef>? = emptyList(),
+    @SerializedName("tags") val tags: List<TagDef>? = emptyList(),
+    @SerializedName("archivedTags") val archivedTags: List<TagDef>? = emptyList(),
     @SerializedName("aiConfig") val aiConfig: Map<String, String>? = null
-)
+) {
+    fun normalized(): WebDavBackupPayload = copy(
+        sessions = sessions.orEmpty(),
+        recycleBin = recycleBin.orEmpty(),
+        categories = categories.orEmpty(),
+        tagGroups = tagGroups.orEmpty(),
+        tags = tags.orEmpty(),
+        archivedTags = archivedTags.orEmpty()
+    )
+}
 
 @Immutable
 data class BackupModules(
