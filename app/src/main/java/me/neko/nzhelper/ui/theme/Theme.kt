@@ -2,9 +2,11 @@ package me.neko.nzhelper.ui.theme
 
 import android.app.Activity
 import android.os.Build
+import android.os.PowerManager
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.LocalOverscrollFactory
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -33,18 +35,83 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.core.view.WindowCompat
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import me.neko.nzhelper.core.datastore.ThemeSettings
 import me.neko.nzhelper.core.util.BackgroundImageManager
 import java.io.File
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.theme.darkColorScheme as miuixDarkColors
+import top.yukonga.miuix.kmp.theme.lightColorScheme as miuixLightColors
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 
 val LocalDarkMode = compositionLocalOf { false }
-val LocalThemeState = compositionLocalOf<ThemeState> {
-    error("ThemeState not provided")
+private val LocalThemePreferences = compositionLocalOf<ThemeState?> { null }
+object LocalThemeState {
+    val current: ThemeState
+        @Composable get() = checkNotNull(LocalThemePreferences.current)
+
+    @Composable
+    fun currentOrNull(): ThemeState? = LocalThemePreferences.current
+}
+
+@Composable
+private fun LowPowerColorCanvas(
+    primary: Color,
+    secondary: Color,
+    dark: Boolean,
+    blur: Float
+) {
+    val context = LocalContext.current
+    val powerManager = remember { context.getSystemService(PowerManager::class.java) }
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    var target by remember { mutableStateOf(0f) }
+    LaunchedEffect(powerManager, lifecycle) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                delay(30000)
+                if (powerManager?.isPowerSaveMode != true) target = 1f - target
+            }
+        }
+    }
+    val phase by animateFloatAsState(
+        targetValue = target,
+        animationSpec = tween(2000),
+        label = "canvasPhase"
+    )
+    Canvas(
+        modifier = Modifier
+            .fillMaxSize()
+            .blur((blur.coerceAtLeast(18f)).dp)
+    ) {
+        val width = size.width
+        val height = size.height
+        val alpha = if (dark) 0.11f else 0.075f
+        drawCircle(
+            color = primary.copy(alpha = alpha),
+            radius = width * 0.62f,
+            center = androidx.compose.ui.geometry.Offset(
+                width * (0.08f + phase * 0.18f),
+                height * (0.14f + phase * 0.1f)
+            )
+        )
+        drawCircle(
+            color = secondary.copy(alpha = alpha * 0.82f),
+            radius = width * 0.52f,
+            center = androidx.compose.ui.geometry.Offset(
+                width * (0.92f - phase * 0.2f),
+                height * (0.86f - phase * 0.12f)
+            )
+        )
+    }
 }
 
 class ThemeState(
@@ -151,15 +218,24 @@ fun NzHelperTheme(
         } else {
             colorScheme
         }
-        if (hasBackgroundImage) {
+        val whiteFirst = if (!darkTheme) {
             base.copy(
-                surfaceContainer = Color.Transparent,
-                surfaceBright = base.surfaceBright.copy(alpha = themeState.cardOpacity),
-                surfaceContainerHigh = base.surfaceContainerHigh.copy(alpha = themeState.dialogOpacity),
-                surfaceContainerHighest = base.surfaceContainerHighest.copy(alpha = themeState.dialogOpacity)
+                background = Color.White,
+                surface = Color.White,
+                surfaceContainer = Color.Transparent
             )
         } else {
-            base
+            base.copy(surfaceContainer = Color.Transparent)
+        }
+        if (hasBackgroundImage) {
+            whiteFirst.copy(
+                surfaceContainer = Color.Transparent,
+                surfaceBright = whiteFirst.surfaceBright.copy(alpha = themeState.cardOpacity),
+                surfaceContainerHigh = whiteFirst.surfaceContainerHigh.copy(alpha = themeState.dialogOpacity),
+                surfaceContainerHighest = whiteFirst.surfaceContainerHighest.copy(alpha = themeState.dialogOpacity)
+            )
+        } else {
+            whiteFirst
         }
     }
 
@@ -176,7 +252,7 @@ fun NzHelperTheme(
 
     CompositionLocalProvider(
         LocalDarkMode provides darkTheme,
-        LocalThemeState provides themeState,
+        LocalThemePreferences provides themeState,
         LocalHazeState provides hazeState,
         LocalOverscrollFactory provides null
     ) {
@@ -205,6 +281,15 @@ fun NzHelperTheme(
                     .fillMaxSize()
                     .background(resolvedColorScheme.background)
             ) {
+                Box(Modifier.fillMaxSize().then(
+                    if (themeState.blurEffect) Modifier.hazeSource(hazeState, zIndex = -1f) else Modifier
+                )) {
+                    LowPowerColorCanvas(
+                        primary = resolvedColorScheme.primary,
+                        secondary = resolvedColorScheme.tertiary,
+                        dark = darkTheme,
+                        blur = themeState.backgroundBlur
+                    )
                 val bitmap = bgBitmap
                 if (bitmap != null) {
                     Image(
@@ -213,8 +298,7 @@ fun NzHelperTheme(
                         modifier = Modifier
                             .fillMaxSize()
                             .scale(1.1f)
-                            .blur(themeState.backgroundBlur.dp)
-                            .hazeSource(hazeState),
+                            .blur(themeState.backgroundBlur.dp),
                         contentScale = ContentScale.Crop
                     )
                     Box(
@@ -223,7 +307,27 @@ fun NzHelperTheme(
                             .background(backgroundOverlay)
                     )
                 }
-                content()
+                }
+                val glassColor = glassOverlayColor()
+                val miuixColors = remember(resolvedColorScheme, glassColor, darkTheme) {
+                    val scheme = resolvedColorScheme
+                    val colors = if (darkTheme) miuixDarkColors() else miuixLightColors()
+                    colors.copy(
+                        primary = scheme.primary,
+                        onPrimary = scheme.onPrimary,
+                        primaryVariant = scheme.primary,
+                        background = scheme.background,
+                        onBackground = scheme.onBackground,
+                        surface = scheme.surface,
+                        onSurface = scheme.onSurface,
+                        onSurfaceVariantSummary = scheme.onSurfaceVariant,
+                        surfaceContainer = glassColor,
+                        onSurfaceContainer = scheme.onSurface,
+                        error = scheme.error,
+                        onError = scheme.onError
+                    )
+                }
+                MiuixTheme(colors = miuixColors, content = content)
             }
         }
     }

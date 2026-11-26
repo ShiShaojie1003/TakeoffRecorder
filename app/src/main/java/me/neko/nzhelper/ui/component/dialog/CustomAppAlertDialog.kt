@@ -3,7 +3,7 @@ package me.neko.nzhelper.ui.component.dialog
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.AlertDialog
+import me.neko.nzhelper.ui.component.miuix.GlassDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -28,9 +28,8 @@ fun CustomAppAlertDialog(
     modifier: Modifier = Modifier,
     onDismiss: () -> Unit = { onDismissRequest() }
 ) {
-    AlertDialog(
+    GlassDialog(
         onDismissRequest = onDismissRequest,
-        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         icon = {
             Icon(
                 imageVector = iconVector,

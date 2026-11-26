@@ -51,16 +51,16 @@ import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Today
 import androidx.compose.material.icons.outlined.ViewInAr
 import androidx.compose.material3.Button
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import me.neko.nzhelper.ui.component.miuix.GlassMenu
+import me.neko.nzhelper.ui.component.miuix.GlassMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
+import top.yukonga.miuix.kmp.basic.RadioButton
+import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -409,13 +409,13 @@ private fun DropdownSelector(
                 modifier = Modifier.size(24.dp)
             )
         }
-        DropdownMenu(
+        GlassMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
             modifier = Modifier.width(maxWidth)
         ) {
             options.forEachIndexed { index, option ->
-                DropdownMenuItem(
+                GlassMenuItem(
                     text = { Text(option) },
                     onClick = {
                         onSelect(index)

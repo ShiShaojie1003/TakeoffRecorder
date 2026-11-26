@@ -46,17 +46,15 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LargeFlexibleTopAppBar
+import me.neko.nzhelper.ui.component.miuix.GlassTopAppBar
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.RadioButtonDefaults
-import androidx.compose.material3.Scaffold
+import top.yukonga.miuix.kmp.basic.RadioButton
+import top.yukonga.miuix.kmp.basic.RadioButtonDefaults
+import top.yukonga.miuix.kmp.basic.Scaffold
 import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
+import top.yukonga.miuix.kmp.basic.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberSliderState
-import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
@@ -96,7 +94,7 @@ fun ThemeSettingsScreen(
     val context = LocalContext.current
     val systemIsDark = isSystemInDarkTheme()
     val scrollBehavior =
-        TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
+        top.yukonga.miuix.kmp.basic.MiuixScrollBehavior()
 
     val themeState = LocalThemeState.current
 
@@ -136,8 +134,8 @@ fun ThemeSettingsScreen(
     Scaffold(
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         topBar = {
-            LargeFlexibleTopAppBar(
-                title = { Text("主题设置") },
+            GlassTopAppBar(
+                title = "主题设置",
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -146,11 +144,7 @@ fun ThemeSettingsScreen(
                         )
                     }
                 },
-                scrollBehavior = scrollBehavior,
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer
-                )
+                scrollBehavior = scrollBehavior
             )
         },
         contentWindowInsets = WindowInsets.safeDrawing.only(
@@ -300,7 +294,6 @@ fun ThemeSettingsScreen(
                             } else {
                                 "当前系统版本不支持背景模糊（需 Android 12+）"
                             },
-                            enabled = themeState.floatingBottomBar,
                             onClick = {
                                 themeState.blurEffect = !themeState.blurEffect
                                 ThemeSettings.setBlurEffectEnabled(context, themeState.blurEffect)
@@ -308,7 +301,6 @@ fun ThemeSettingsScreen(
                             trailingContent = {
                                 Switch(
                                     checked = themeState.blurEffect,
-                                    enabled = themeState.floatingBottomBar,
                                     onCheckedChange = { enabled ->
                                         themeState.blurEffect = enabled
                                         ThemeSettings.setBlurEffectEnabled(context, enabled)
@@ -471,7 +463,7 @@ private fun ModeOption(
             RadioButton(
                 selected = selected,
                 onClick = null,
-                colors = RadioButtonDefaults.colors(
+                colors = RadioButtonDefaults.radioButtonColors(
                     selectedColor = MaterialTheme.colorScheme.primary
                 )
             )

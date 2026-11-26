@@ -18,7 +18,7 @@ import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.LocalFireDepartment
 import androidx.compose.material.icons.outlined.Schedule
-import androidx.compose.material3.Card
+import me.neko.nzhelper.ui.component.miuix.GlassCard
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -61,7 +61,7 @@ fun PeriodDashboardCard(
         mutableStateOf(calculatePeriodDashboard(sessions, currentTime, selectedType))
     }
 
-    Card(
+    GlassCard(
         modifier = modifier,
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(

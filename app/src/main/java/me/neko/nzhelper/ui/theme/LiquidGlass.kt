@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -13,6 +14,11 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.compositeOver
+import dev.chrisbanes.haze.HazeInput
+import dev.chrisbanes.haze.blur.HazeBlurStyle
+import dev.chrisbanes.haze.blur.hazeBlur
+import dev.chrisbanes.haze.blur.material3.Material3
 
 /**
  * iOS 27「液态玻璃」风格的页卡容器。
@@ -29,10 +35,35 @@ import androidx.compose.ui.unit.dp
  * @param containerColor 玻璃底色，缺省自动按主题派生。
  */
 @Composable
-fun liquidGlassContainerColor(): Color =
-    MaterialTheme.colorScheme.surfaceBright.copy(
-        alpha = if (LocalDarkMode.current) 0.66f else 0.72f
+fun liquidGlassContainerColor(): Color {
+    val scheme = MaterialTheme.colorScheme
+    val tint = scheme.primary.copy(alpha = if (LocalDarkMode.current) 0.08f else 0.035f)
+    return tint.compositeOver(scheme.surfaceBright.copy(alpha = 1f)).copy(
+        alpha = (if (LocalDarkMode.current) 0.72f else 0.70f) *
+            (LocalThemeState.currentOrNull()?.cardOpacity ?: 1f)
     )
+}
+
+@Composable
+fun glassOverlayColor(): Color {
+    val theme = LocalThemeState.currentOrNull()
+    return MaterialTheme.colorScheme.surfaceBright.copy(
+        alpha = if (theme?.blurEffect != false) 0.96f * (theme?.dialogOpacity ?: 1f) else 1f
+    )
+}
+
+@Composable
+fun Modifier.glassBackdrop(color: Color, radius: androidx.compose.ui.unit.Dp = 20.dp): Modifier {
+    val haze = LocalHazeState.current
+    return if (haze != null && LocalThemeState.currentOrNull()?.blurEffect == true) {
+        hazeBlur(
+            input = HazeInput.Sources(haze),
+            style = HazeBlurStyle.Material3(containerColor = color) { blurRadius(radius) }
+        )
+    } else {
+        background(color)
+    }
+}
 
 @Composable
 fun liquidGlassBorderColor(): Color =

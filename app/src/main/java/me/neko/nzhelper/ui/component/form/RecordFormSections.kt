@@ -17,7 +17,7 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Remove
 import androidx.compose.material.icons.outlined.Schedule
-import androidx.compose.material3.AlertDialog
+import me.neko.nzhelper.ui.component.miuix.GlassDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -377,7 +377,7 @@ fun DateTimeInputSection(
             initialMinute = formState.manualMinute,
             is24Hour = true
         )
-        AlertDialog(
+        GlassDialog(
             onDismissRequest = { showTimePicker = false },
             title = { Text("选择时间") },
             text = {

@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
@@ -18,11 +17,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Update
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.ShortNavigationBar
-import androidx.compose.material3.ShortNavigationBarItem
-import androidx.compose.material3.Text
+import top.yukonga.miuix.kmp.basic.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -35,6 +30,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.app.NotificationManagerCompat
@@ -66,30 +62,6 @@ import me.neko.nzhelper.feature.statistics.StatisticsScreen
 import me.neko.nzhelper.ui.component.dialog.CustomAppAlertDialog
 import me.neko.nzhelper.ui.theme.LocalHazeState
 import me.neko.nzhelper.ui.theme.LocalThemeState
-
-@Composable
-fun BottomNavigationBar(
-    pagerState: PagerState,
-    onPageSelected: (Int) -> Unit
-) {
-    ShortNavigationBar(
-        containerColor = MaterialTheme.colorScheme.surfaceContainer
-    ) {
-        BottomNavItem.items.forEachIndexed { index, item ->
-            ShortNavigationBarItem(
-                icon = {
-                    Icon(
-                        painter = item.icon(),
-                        contentDescription = item.title
-                    )
-                },
-                label = { Text(item.title) },
-                selected = pagerState.currentPage == index,
-                onClick = { onPageSelected(index) }
-            )
-        }
-    }
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -260,19 +232,20 @@ fun MainScreen(
     // ── UI ──
     val floatingBottomBar = LocalThemeState.current.floatingBottomBar
     val blurEffect = LocalThemeState.current.blurEffect
-    val hazeState = LocalHazeState.current?.takeIf { floatingBottomBar && blurEffect }
+    val hazeState = LocalHazeState.current?.takeIf { blurEffect }
     val onPageSelected: (Int) -> Unit = { targetPage ->
         scope.launch { pagerState.animateScrollToPage(targetPage) }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            containerColor = Color.Transparent,
             bottomBar = {
                 if (!floatingBottomBar) {
-                    BottomNavigationBar(
+                    RecordNavigationBar(
                         pagerState = pagerState,
-                        onPageSelected = onPageSelected
+                        onItemClick = onPageSelected,
+                        floating = false
                     )
                 }
             },
@@ -290,8 +263,8 @@ fun MainScreen(
             ) { page ->
                 val isCurrentPage = pagerState.currentPage == page
 
-                when (BottomNavItem.items[page].route) {
-                    BottomNavItem.Home.route -> HomeScreen(
+                when (BottomNavItem.items[page]) {
+                    BottomNavItem.Home -> HomeScreen(
                         isActive = isCurrentPage,
                         stopRequestId = if (isLocked) 0 else stopRequestId,
                         onStopRequestConsumed = onStopRequestConsumed,
@@ -310,15 +283,15 @@ fun MainScreen(
                         }
                     )
 
-                    BottomNavItem.Statistics.route -> StatisticsScreen(isActive = isCurrentPage)
-                    BottomNavItem.History.route -> HistoryScreen(
+                    BottomNavItem.Statistics -> StatisticsScreen(isActive = isCurrentPage)
+                    BottomNavItem.History -> HistoryScreen(
                         isActive = isCurrentPage,
                         onEditRecord = { session ->
                             openAddRecord(AddRecordFlow.EDIT, 0, session)
                         }
                     )
 
-                    BottomNavItem.Mine.route -> MineScreen(
+                    BottomNavItem.Mine -> MineScreen(
                         rootNavController = rootNavController
                     )
                 }
@@ -326,12 +299,11 @@ fun MainScreen(
         }
 
         if (floatingBottomBar) {
-            FloatingBottomBar(
-                items = BottomNavItem.items,
+            RecordNavigationBar(
                 pagerState = pagerState,
                 onItemClick = onPageSelected,
                 modifier = Modifier.align(Alignment.BottomCenter),
-                hazeState = hazeState
+                floating = true
             )
         }
 

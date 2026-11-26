@@ -14,15 +14,15 @@ import androidx.compose.material.icons.outlined.FileOpen
 import androidx.compose.material.icons.outlined.PictureAsPdf
 import androidx.compose.material.icons.outlined.Recycling
 import androidx.compose.material.icons.outlined.Sell
-import androidx.compose.material3.AlertDialog
+import me.neko.nzhelper.ui.component.miuix.GlassDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Checkbox
+import me.neko.nzhelper.ui.component.miuix.GlassCheckbox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.RadioButton
+import top.yukonga.miuix.kmp.basic.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -51,9 +51,8 @@ fun DocumentExportDialog(
     var recycleBin by remember { mutableStateOf(false) }
     var taxonomy by remember { mutableStateOf(true) }
 
-    AlertDialog(
+    GlassDialog(
         onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         icon = {
             Icon(Icons.Outlined.Description, contentDescription = null)
         },
@@ -187,7 +186,7 @@ private fun ModuleRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Checkbox(checked = checked, onCheckedChange = onCheckedChange)
+        GlassCheckbox(checked = checked, onCheckedChange = onCheckedChange)
         Icon(
             imageVector = icon,
             contentDescription = null,

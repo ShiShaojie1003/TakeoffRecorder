@@ -27,25 +27,23 @@ import androidx.compose.material.icons.outlined.Token
 import androidx.compose.material.icons.outlined.Transgender
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.rounded.SmartToy
-import androidx.compose.material3.AlertDialog
+import me.neko.nzhelper.ui.component.miuix.GlassDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Checkbox
+import me.neko.nzhelper.ui.component.miuix.GlassCheckbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LargeFlexibleTopAppBar
+import me.neko.nzhelper.ui.component.miuix.GlassTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.RadioButtonDefaults
-import androidx.compose.material3.Scaffold
+import top.yukonga.miuix.kmp.basic.RadioButton
+import top.yukonga.miuix.kmp.basic.RadioButtonDefaults
+import top.yukonga.miuix.kmp.basic.Scaffold
 import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
+import top.yukonga.miuix.kmp.basic.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberSliderState
-import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -111,7 +109,7 @@ fun AiConfigScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val scrollBehavior =
-        TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
+        top.yukonga.miuix.kmp.basic.MiuixScrollBehavior()
 
     var enabled by remember { mutableStateOf(false) }
     var tone by remember { mutableStateOf("warm") }
@@ -155,18 +153,14 @@ fun AiConfigScreen(
     Scaffold(
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         topBar = {
-            LargeFlexibleTopAppBar(
-                title = { Text("AI 健康建议") },
+            GlassTopAppBar(
+                title = "AI 健康建议",
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Outlined.ArrowBack, "返回")
                     }
                 },
-                scrollBehavior = scrollBehavior,
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer
-                )
+                scrollBehavior = scrollBehavior
             )
         }
     ) { innerPadding ->
@@ -308,9 +302,8 @@ fun AiConfigScreen(
 
     // 口吻选择
     if (showToneDialog) {
-        AlertDialog(
+        GlassDialog(
             onDismissRequest = { showToneDialog = false },
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             title = {
                 Text("回答口吻", textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
             },
@@ -335,11 +328,8 @@ fun AiConfigScreen(
                             RadioButton(
                                 selected = selected,
                                 onClick = null,
-                                colors = RadioButtonDefaults.colors(
-                                    selectedColor = MaterialTheme.colorScheme.primary,
-                                    unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                                        alpha = 0.5f
-                                    )
+                                colors = RadioButtonDefaults.radioButtonColors(
+                                    selectedColor = MaterialTheme.colorScheme.primary
                                 )
                             )
                             Spacer(Modifier.width(8.dp))
@@ -365,9 +355,8 @@ fun AiConfigScreen(
 
     // 长度选择
     if (showLengthDialog) {
-        AlertDialog(
+        GlassDialog(
             onDismissRequest = { showLengthDialog = false },
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             title = {
                 Text("回答长度", textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
             },
@@ -392,11 +381,8 @@ fun AiConfigScreen(
                             RadioButton(
                                 selected = selected,
                                 onClick = null,
-                                colors = RadioButtonDefaults.colors(
-                                    selectedColor = MaterialTheme.colorScheme.primary,
-                                    unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                                        alpha = 0.5f
-                                    )
+                                colors = RadioButtonDefaults.radioButtonColors(
+                                    selectedColor = MaterialTheme.colorScheme.primary
                                 )
                             )
                             Spacer(Modifier.width(8.dp))
@@ -431,9 +417,8 @@ fun AiConfigScreen(
             "损友" to "用损友互怼的语气，像兄弟一样直白不绕弯",
             "骑士" to "用忠诚守护的骑士口吻，充满责任感和使命感"
         )
-        AlertDialog(
+        GlassDialog(
             onDismissRequest = { showCustomDialog = false },
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             title = {
                 Text("自定义要求", textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
             },
@@ -497,9 +482,8 @@ fun AiConfigScreen(
 
     // 建议倾向选择
     if (showAiModeDialog) {
-        AlertDialog(
+        GlassDialog(
             onDismissRequest = { showAiModeDialog = false },
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             title = {
                 Text("建议倾向", textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
             },
@@ -524,11 +508,8 @@ fun AiConfigScreen(
                             RadioButton(
                                 selected = selected,
                                 onClick = null,
-                                colors = RadioButtonDefaults.colors(
-                                    selectedColor = MaterialTheme.colorScheme.primary,
-                                    unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                                        alpha = 0.5f
-                                    )
+                                colors = RadioButtonDefaults.radioButtonColors(
+                                    selectedColor = MaterialTheme.colorScheme.primary
                                 )
                             )
                             Spacer(Modifier.width(8.dp))
@@ -554,9 +535,8 @@ fun AiConfigScreen(
 
     // Max Tokens 滑块
     if (showMaxTokensDialog) {
-        AlertDialog(
+        GlassDialog(
             onDismissRequest = { showMaxTokensDialog = false },
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             title = {
                 Text("Max Tokens", textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
             },
@@ -608,9 +588,8 @@ fun AiConfigScreen(
 
     // 刷新间隔选择
     if (showRefreshDialog) {
-        AlertDialog(
+        GlassDialog(
             onDismissRequest = { showRefreshDialog = false },
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             title = {
                 Text("自动刷新", textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
             },
@@ -635,11 +614,8 @@ fun AiConfigScreen(
                             RadioButton(
                                 selected = selected,
                                 onClick = null,
-                                colors = RadioButtonDefaults.colors(
-                                    selectedColor = MaterialTheme.colorScheme.primary,
-                                    unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                                        alpha = 0.5f
-                                    )
+                                colors = RadioButtonDefaults.radioButtonColors(
+                                    selectedColor = MaterialTheme.colorScheme.primary
                                 )
                             )
                             Spacer(Modifier.width(8.dp))
@@ -665,9 +641,8 @@ fun AiConfigScreen(
     // 数据字段选择
     if (showDataDialog) {
         val groups = AiSettings.DataField.GROUPS
-        AlertDialog(
+        GlassDialog(
             onDismissRequest = { showDataDialog = false },
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             title = {
                 Text("发送数据", textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
             },
@@ -709,7 +684,7 @@ fun AiConfigScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
                                     Text(field.label, style = MaterialTheme.typography.bodyLarge)
-                                    Checkbox(
+                                    GlassCheckbox(
                                         checked = field.key in dataOpts.fields,
                                         onCheckedChange = {
                                             val newFields = dataOpts.fields.toMutableSet()
@@ -735,9 +710,8 @@ fun AiConfigScreen(
 
     // 时间范围选择
     if (showAnalysisDaysDialog) {
-        AlertDialog(
+        GlassDialog(
             onDismissRequest = { showAnalysisDaysDialog = false },
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             title = {
                 Text("时间范围", textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
             },
@@ -761,11 +735,8 @@ fun AiConfigScreen(
                         ) {
                             RadioButton(
                                 selected = selected, onClick = null,
-                                colors = RadioButtonDefaults.colors(
-                                    selectedColor = MaterialTheme.colorScheme.primary,
-                                    unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                                        alpha = 0.5f
-                                    )
+                                colors = RadioButtonDefaults.radioButtonColors(
+                                    selectedColor = MaterialTheme.colorScheme.primary
                                 )
                             )
                             Spacer(Modifier.width(8.dp))

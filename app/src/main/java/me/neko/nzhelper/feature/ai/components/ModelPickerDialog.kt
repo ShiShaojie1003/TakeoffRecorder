@@ -18,14 +18,14 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.PlayArrow
-import androidx.compose.material3.AlertDialog
+import me.neko.nzhelper.ui.component.miuix.GlassDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.RadioButtonDefaults
+import top.yukonga.miuix.kmp.basic.RadioButton
+import top.yukonga.miuix.kmp.basic.RadioButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -85,7 +85,7 @@ fun ModelPickerDialog(
         }
     }
 
-    AlertDialog(
+    GlassDialog(
         onDismissRequest = onDismiss,
         title = { Text("选择模型") },
         text = {
@@ -192,7 +192,7 @@ fun ModelPickerDialog(
                                 RadioButton(
                                     selected = selectedModel == m,
                                     onClick = { selectedModel = m },
-                                    colors = RadioButtonDefaults.colors(
+                                    colors = RadioButtonDefaults.radioButtonColors(
                                         selectedColor = MaterialTheme.colorScheme.primary
                                     )
                                 )

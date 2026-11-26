@@ -37,25 +37,23 @@ import androidx.compose.material.icons.outlined.Update
 import androidx.compose.material.icons.outlined.Upload
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
-import androidx.compose.material3.AlertDialog
+import me.neko.nzhelper.ui.component.miuix.GlassDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Checkbox
+import me.neko.nzhelper.ui.component.miuix.GlassCheckbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LargeFlexibleTopAppBar
+import me.neko.nzhelper.ui.component.miuix.GlassTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
+import top.yukonga.miuix.kmp.basic.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberSliderState
-import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -104,7 +102,7 @@ fun BackupScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     val configuration = LocalConfiguration.current
     val scrollBehavior =
-        TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
+        top.yukonga.miuix.kmp.basic.MiuixScrollBehavior()
 
     var hasCustomBackupPassword by remember { mutableStateOf(BackupCipher.hasCustomPassword(context)) }
     var showBackupPasswordDialog by remember { mutableStateOf(false) }
@@ -245,18 +243,14 @@ fun BackupScreen(
     Scaffold(
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         topBar = {
-            LargeFlexibleTopAppBar(
-                title = { Text("备份与恢复") },
+            GlassTopAppBar(
+                title = "备份与恢复",
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
                     }
                 },
-                scrollBehavior = scrollBehavior,
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer
-                )
+                scrollBehavior = scrollBehavior
             )
         },
         contentWindowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
@@ -694,9 +688,8 @@ private fun BackupModuleDialog(
     var taxonomy by remember { mutableStateOf(modules.taxonomy && !legacySessionsOnly) }
     var aiConfig by remember { mutableStateOf(modules.aiConfig && !legacySessionsOnly) }
 
-    AlertDialog(
+    GlassDialog(
         onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         icon = {
             Icon(icon, contentDescription = null)
         },
@@ -782,7 +775,7 @@ private fun ModuleRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Checkbox(
+        GlassCheckbox(
             checked = checked,
             onCheckedChange = onCheckedChange,
             enabled = enabled
@@ -817,9 +810,8 @@ private fun BackupPasswordDialog(
 ) {
     var password by remember { mutableStateOf(initialPassword) }
     var passwordVisible by remember { mutableStateOf(false) }
-    AlertDialog(
+    GlassDialog(
         onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         icon = {
             Icon(Icons.Outlined.Key, contentDescription = null)
         },
@@ -886,9 +878,8 @@ private fun RetentionCountDialog(
     onDismiss: () -> Unit
 ) {
     var value by remember { mutableIntStateOf(initialValue) }
-    AlertDialog(
+    GlassDialog(
         onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         title = {
             Text(title, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
         },

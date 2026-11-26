@@ -23,25 +23,23 @@ import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material.icons.outlined.ViewInAr
-import androidx.compose.material3.AlertDialog
+import me.neko.nzhelper.ui.component.miuix.GlassDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
+import me.neko.nzhelper.ui.component.miuix.GlassCard
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import me.neko.nzhelper.ui.component.miuix.GlassMenu
+import me.neko.nzhelper.ui.component.miuix.GlassMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LargeFlexibleTopAppBar
+import me.neko.nzhelper.ui.component.miuix.GlassTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
+import top.yukonga.miuix.kmp.basic.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -69,7 +67,7 @@ fun AiProviderListScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val scrollBehavior =
-        TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
+        top.yukonga.miuix.kmp.basic.MiuixScrollBehavior()
 
     var providers by remember { mutableStateOf<List<AiProvider>>(emptyList()) }
     var editingProvider by remember { mutableStateOf<AiProvider?>(null) }
@@ -87,18 +85,14 @@ fun AiProviderListScreen(onBack: () -> Unit) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         topBar = {
-            LargeFlexibleTopAppBar(
-                title = { Text("供应商") },
+            GlassTopAppBar(
+                title = "供应商",
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Outlined.ArrowBack, "返回")
                     }
                 },
-                scrollBehavior = scrollBehavior,
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer
-                )
+                scrollBehavior = scrollBehavior
             )
         },
         floatingActionButton = {
@@ -174,9 +168,8 @@ fun AiProviderListScreen(onBack: () -> Unit) {
     }
 
     if (deleteTarget != null) {
-        AlertDialog(
+        GlassDialog(
             onDismissRequest = { deleteTarget = null },
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             icon = {
                 Icon(
                     Icons.Outlined.DeleteOutline,
@@ -267,7 +260,7 @@ private fun ProviderCard(
     onActivate: () -> Unit
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
-    Card(
+    GlassCard(
         onClick = onActivate,
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
@@ -319,13 +312,11 @@ private fun ProviderCard(
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                DropdownMenu(
+                GlassMenu(
                     expanded = menuExpanded,
                     onDismissRequest = { menuExpanded = false },
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                    shape = MaterialTheme.shapes.medium
                 ) {
-                    DropdownMenuItem(
+                    GlassMenuItem(
                         text = { Text("选择模型") },
                         onClick = { menuExpanded = false; onPickModel() },
                         leadingIcon = {
@@ -336,7 +327,7 @@ private fun ProviderCard(
                             )
                         }
                     )
-                    DropdownMenuItem(
+                    GlassMenuItem(
                         text = { Text("编辑") },
                         onClick = { menuExpanded = false; onClick() },
                         leadingIcon = {
@@ -348,7 +339,7 @@ private fun ProviderCard(
                         }
                     )
                     HorizontalDivider(modifier = Modifier.padding(horizontal = 8.dp))
-                    DropdownMenuItem(
+                    GlassMenuItem(
                         text = { Text("删除", color = MaterialTheme.colorScheme.error) },
                         onClick = { menuExpanded = false; onDelete() },
                         leadingIcon = {

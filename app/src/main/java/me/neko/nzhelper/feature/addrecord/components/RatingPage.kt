@@ -4,10 +4,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import me.neko.nzhelper.core.datastore.TagSettings
 import me.neko.nzhelper.core.model.SessionFormState
+import me.neko.nzhelper.core.model.SessionMode
 import me.neko.nzhelper.ui.component.form.ClimaxCountSection
 import me.neko.nzhelper.ui.component.form.RatingSection
 import me.neko.nzhelper.ui.component.form.SettingsSection
@@ -18,7 +18,6 @@ internal fun RatingPage(
     formState: SessionFormState,
     onFormStateChange: (SessionFormState) -> Unit
 ) {
-    val context = LocalContext.current
 
     SettingsCard {
         item {
@@ -50,11 +49,8 @@ internal fun RatingPage(
             SettingsSection {
                 TagSelectCard(
                     title = "情绪",
-                    loadTags = {
-                        TagSettings.getTags(context).filter {
-                            it.groupId == TagSettings.LEGACY_GROUP_STATE
-                        }
-                    },
+                    groupId = TagSettings.LEGACY_GROUP_STATE,
+                    mode = SessionMode.fromKey(formState.mode),
                     selectedIds = formState.moods,
                     onSelectionChange = {
                         onFormStateChange(formState.copy(moods = it))

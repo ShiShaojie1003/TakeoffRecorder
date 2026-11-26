@@ -647,6 +647,15 @@ object TagSettings {
     fun getGroup(context: Context, id: String): TagGroupDef? =
         getGroups(context).firstOrNull { it.id == id }
 
+    internal fun ensureRecordGroup(context: Context, id: String, name: String) {
+        val groups = getGroups(context)
+        if (groups.none { it.id == id }) {
+            val group = DEFAULT_GROUPS.firstOrNull { it.id == id }
+                ?: TagGroupDef(id, name)
+            writeList(context, KEY_GROUPS, groups + group.copy(sortOrder = groups.size))
+        }
+    }
+
     fun getTag(context: Context, id: String): TagDef? =
         getTags(context).firstOrNull { it.id == id }
             ?: getArchivedTags(context).firstOrNull { it.id == id }

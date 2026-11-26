@@ -16,13 +16,12 @@ import androidx.compose.material.icons.outlined.Group
 import androidx.compose.material.icons.outlined.Male
 import androidx.compose.material.icons.outlined.SelectAll
 import androidx.compose.material3.Button
-import androidx.compose.material3.Checkbox
+import me.neko.nzhelper.ui.component.miuix.GlassCheckbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
+import me.neko.nzhelper.ui.component.miuix.GlassSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -43,14 +42,9 @@ fun HistoryFilterSheet(
 ) {
     var selection by remember(activeFilters) { mutableStateOf(activeFilters) }
 
-    @Suppress("DEPRECATION")
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    ModalBottomSheet(
+    GlassSheet(
         onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Text(
@@ -82,7 +76,7 @@ fun HistoryFilterSheet(
                                 }
                             },
                             trailingContent = {
-                                Checkbox(checked = isSelected, onCheckedChange = null)
+                                GlassCheckbox(checked = isSelected, onCheckedChange = null)
                             }
                         )
                     }

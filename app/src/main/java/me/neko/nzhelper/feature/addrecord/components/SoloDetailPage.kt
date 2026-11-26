@@ -62,7 +62,8 @@ private fun SoloGroupTagCard(
 
     TagSelectCard(
         title = title,
-        loadTags = { tags },
+        groupId = groupId,
+        mode = SessionMode.fromKey(formState.mode),
         selectedIds = formState.tagIds.intersect(ids),
         onSelectionChange = { selected ->
             onFormStateChange(

@@ -40,7 +40,7 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
+import top.yukonga.miuix.kmp.basic.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -220,7 +220,6 @@ fun AddRecordScreen(
         mutableStateOf(initialFormState(context, flow, editSession))
     }
     var finished by remember { mutableStateOf(false) }
-
     val steps = buildSteps(formState)
     val pagerState = rememberPagerState(pageCount = { steps.size })
 
@@ -378,7 +377,7 @@ fun AddRecordScreen(
     }
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.surfaceContainer
+        containerColor = androidx.compose.ui.graphics.Color.Transparent
     ) { innerPadding ->
         Column(
             modifier = Modifier

@@ -3,7 +3,7 @@ package me.neko.nzhelper.ui.component.dialog
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Sell
-import androidx.compose.material3.AlertDialog
+import me.neko.nzhelper.ui.component.miuix.GlassDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -22,9 +22,8 @@ fun TaxonomyUpdateDialog(
     onConfirm: () -> Unit,
     onLater: () -> Unit
 ) {
-    AlertDialog(
+    GlassDialog(
         onDismissRequest = onLater,
-        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         icon = {
             Icon(
                 imageVector = Icons.Outlined.Sell,

@@ -1,7 +1,6 @@
 package me.neko.nzhelper.feature.addrecord.components
 
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
 import me.neko.nzhelper.core.datastore.TagSettings
 import me.neko.nzhelper.core.model.SessionFormState
 import me.neko.nzhelper.core.model.SessionMode
@@ -15,8 +14,6 @@ internal fun PartnerPage(
     formState: SessionFormState,
     onFormStateChange: (SessionFormState) -> Unit
 ) {
-    val context = LocalContext.current
-    val pairMode = SessionMode.PAIR
 
     SettingsCard {
         item {
@@ -28,11 +25,8 @@ internal fun PartnerPage(
             SettingsSection {
                 TagSelectCard(
                     title = "体位",
-                    loadTags = {
-                        TagSettings.getTags(context).filter {
-                            it.groupId == TagSettings.GROUP_POSITION && it.appliesTo(pairMode)
-                        }
-                    },
+                    groupId = TagSettings.GROUP_POSITION,
+                    mode = SessionMode.fromKey(formState.mode),
                     selectedIds = formState.positions,
                     onSelectionChange = {
                         onFormStateChange(formState.copy(positions = it))
@@ -44,11 +38,8 @@ internal fun PartnerPage(
             SettingsSection {
                 TagSelectCard(
                     title = "情趣玩具",
-                    loadTags = {
-                        TagSettings.getTags(context).filter {
-                            it.groupId == TagSettings.LEGACY_GROUP_TOOL && it.appliesTo(pairMode)
-                        }
-                    },
+                    groupId = TagSettings.LEGACY_GROUP_TOOL,
+                    mode = SessionMode.fromKey(formState.mode),
                     selectedIds = formState.toys,
                     onSelectionChange = {
                         onFormStateChange(formState.copy(toys = it))
@@ -65,11 +56,8 @@ internal fun PartnerPage(
             SettingsSection {
                 TagSelectCard(
                     title = "射精方式",
-                    loadTags = {
-                        TagSettings.getTags(context).filter {
-                            it.groupId == TagSettings.GROUP_EJACULATE && it.appliesTo(pairMode)
-                        }
-                    },
+                    groupId = TagSettings.GROUP_EJACULATE,
+                    mode = SessionMode.fromKey(formState.mode),
                     selectedIds = setOfNotNull(formState.ejaculation.takeIf { it.isNotBlank() }),
                     singleSelect = true,
                     onSelectionChange = {

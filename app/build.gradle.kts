@@ -4,38 +4,8 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
-fun getGitCommitCount(): Int {
-    return try {
-        val process = ProcessBuilder("git", "rev-list", "--count", "HEAD")
-            .redirectErrorStream(true)
-            .start()
-        val output = process.inputStream.bufferedReader().readText().trim()
-        if (process.waitFor() == 0) output.toIntOrNull() ?: 1 else 1
-    } catch (_: Exception) {
-        1 // fallback
-    }
-}
-
-fun getGitShortHash(): String {
-    return try {
-        val process = ProcessBuilder("git", "rev-parse", "--short", "HEAD")
-            .redirectErrorStream(true)
-            .start()
-        val output = process.inputStream.bufferedReader().readText().trim()
-        if (process.waitFor() == 0) {
-            // Keep the generated APK filename portable, especially on Windows.
-            output.replace(Regex("[^A-Za-z0-9._-]"), "").ifBlank { "nogit" }
-        } else {
-            "nogit"
-        }
-    } catch (_: Exception) {
-        "nogit"
-    }
-}
-
-val commitCount = getGitCommitCount() + 1001
-val gitHash = getGitShortHash()
-val versionNameStr = "1.2.0"
+val releaseVersionCode = 1300
+val versionNameStr = "1.3.0"
 
 val releaseKeystoreFile: String? = providers.environmentVariable("NZH_KEYSTORE_FILE").orNull
 val releaseKeystorePassword: String? = providers.environmentVariable("NZH_KEYSTORE_PASSWORD").orNull
@@ -55,7 +25,7 @@ android {
         minSdk = 27
         targetSdk = 37
 
-        versionCode = commitCount
+        versionCode = releaseVersionCode
         versionName = versionNameStr
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -122,6 +92,7 @@ ksp {
 }
 
 dependencies {
+    implementation("top.yukonga.miuix.kmp:miuix-ui-android:0.9.4")
 
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.biometric)

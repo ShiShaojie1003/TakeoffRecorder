@@ -5,6 +5,7 @@ import androidx.compose.ui.platform.LocalContext
 import me.neko.nzhelper.core.auto.AutoTagRules
 import me.neko.nzhelper.core.datastore.TagSettings
 import me.neko.nzhelper.core.model.SessionFormState
+import me.neko.nzhelper.core.model.SessionMode
 import me.neko.nzhelper.ui.component.form.SettingsSection
 import me.neko.nzhelper.ui.component.setting.SettingsCard
 import java.time.LocalDateTime
@@ -21,11 +22,8 @@ internal fun SoloContextPage(
             SettingsSection {
                 TagSelectCard(
                     title = "地点",
-                    loadTags = {
-                        TagSettings.getTags(context).filter {
-                            it.groupId == TagSettings.LEGACY_GROUP_ENV
-                        }
-                    },
+                    groupId = TagSettings.LEGACY_GROUP_ENV,
+                    mode = SessionMode.fromKey(formState.mode),
                     selectedIds = formState.locations,
                     onSelectionChange = {
                         onFormStateChange(formState.copy(locations = it))
@@ -41,7 +39,8 @@ internal fun SoloContextPage(
                 val timeIds = timeTags.map { it.id }.toSet()
                 TagSelectCard(
                     title = "时间",
-                    loadTags = { timeTags },
+                    groupId = TagSettings.GROUP_TIME,
+                    mode = SessionMode.fromKey(formState.mode),
                     selectedIds = formState.tagIds.intersect(timeIds),
                     onSelectionChange = { selected ->
                         onFormStateChange(

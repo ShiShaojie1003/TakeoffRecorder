@@ -23,32 +23,17 @@ internal fun PartnerLocationPage(
     onFormStateChange: (SessionFormState) -> Unit
 ) {
     val context = LocalContext.current
-    val pairMode = SessionMode.PAIR
 
     SettingsCard {
         item {
             SettingsSection {
                 TagSelectCard(
                     title = "伴侣",
-                    loadTags = {
-                        TagSettings.getTags(context).filter {
-                            it.groupId == TagSettings.GROUP_PARTNER && it.appliesTo(pairMode)
-                        }
-                    },
+                    groupId = TagSettings.GROUP_PARTNER,
+                    mode = SessionMode.fromKey(formState.mode),
                     selectedIds = formState.partners,
                     onSelectionChange = {
                         onFormStateChange(formState.copy(partners = it))
-                    },
-                    addLabel = "新增伴侣",
-                    onAddNew = { name ->
-                        TagSettings.addTag(
-                            context,
-                            name,
-                            TagSettings.GROUP_PARTNER,
-                            icon = "smile",
-                            color = "pink",
-                            modeKeys = listOf(SessionMode.PAIR.key)
-                        )
                     }
                 )
             }
@@ -80,11 +65,8 @@ internal fun PartnerLocationPage(
             SettingsSection {
                 TagSelectCard(
                     title = "地点",
-                    loadTags = {
-                        TagSettings.getTags(context).filter {
-                            it.groupId == TagSettings.LEGACY_GROUP_ENV
-                        }
-                    },
+                    groupId = TagSettings.LEGACY_GROUP_ENV,
+                    mode = SessionMode.fromKey(formState.mode),
                     selectedIds = formState.locations,
                     onSelectionChange = {
                         onFormStateChange(formState.copy(locations = it))
@@ -100,7 +82,8 @@ internal fun PartnerLocationPage(
                 val timeIds = timeTags.map { it.id }.toSet()
                 TagSelectCard(
                     title = "时间",
-                    loadTags = { timeTags },
+                    groupId = TagSettings.GROUP_TIME,
+                    mode = SessionMode.fromKey(formState.mode),
                     selectedIds = formState.tagIds.intersect(timeIds),
                     onSelectionChange = { selected ->
                         onFormStateChange(

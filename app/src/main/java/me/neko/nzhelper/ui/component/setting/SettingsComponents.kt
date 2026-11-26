@@ -24,11 +24,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Badge
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.contentColorFor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
@@ -41,18 +38,19 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.BasicComponentColors
+import me.neko.nzhelper.ui.theme.LiquidGlass
 import me.neko.nzhelper.ui.theme.LocalDarkMode
 import me.neko.nzhelper.ui.theme.liquidGlassBorderColor
 import me.neko.nzhelper.ui.theme.liquidGlassContainerColor
 import me.neko.nzhelper.ui.theme.liquidGlassHighlightColor
 
-val SettingsCornerRadius = 16.dp
-val SettingsConnectionRadius = 5.dp
+val SettingsCornerRadius = 24.dp
+val SettingsConnectionRadius = 6.dp
 private val GroupGap = 2.dp
 
 data class SettingsItemCorners(val topRadius: Dp, val bottomRadius: Dp)
@@ -240,141 +238,41 @@ fun SettingsItem(
     leadingModifier: Modifier = Modifier,
     trailingContent: @Composable (() -> Unit)? = null
 ) {
-    val haptic = LocalHapticFeedback.current
-    val contentAlpha = if (enabled) 1f else 0.38f
-    val dynamicInternalPadding = (6 * LocalDensity.current.fontScale).dp
+    val colors = MaterialTheme.colorScheme
+    val container = if (selected) colors.primary.copy(alpha = 0.12f) else liquidGlassContainerColor()
+    val foreground = if (selected) colors.primary else titleColor
     val corners = LocalSettingsItemCorners.current
-    val interactionSource = remember { MutableInteractionSource() }
-    val pressed by interactionSource.collectIsPressedAsState()
-    val topRadius by animateDpAsState(
-        targetValue = if (pressed) SettingsCornerRadius else corners.topRadius,
-        animationSpec = tween(durationMillis = 150, easing = FastOutSlowInEasing),
-        label = "settingsItemTopRadius"
-    )
-    val bottomRadius by animateDpAsState(
-        targetValue = if (pressed) SettingsCornerRadius else corners.bottomRadius,
-        animationSpec = tween(durationMillis = 150, easing = FastOutSlowInEasing),
-        label = "settingsItemBottomRadius"
-    )
-    val shape = RoundedCornerShape(
-        topStart = topRadius,
-        topEnd = topRadius,
-        bottomEnd = bottomRadius,
-        bottomStart = bottomRadius
-    )
-
-    val baseContentColor = if (selected) {
-        MaterialTheme.colorScheme.contentColorFor(MaterialTheme.colorScheme.primaryContainer)
-    } else {
-        MaterialTheme.colorScheme.onSurface
-    }
-    val containerColor = if (selected) {
-        MaterialTheme.colorScheme.primaryContainer
-    } else {
-        liquidGlassContainerColor()
-    }
-    val defaultIconColor = if (LocalDarkMode.current) {
-        MaterialTheme.colorScheme.onSurfaceVariant
-    } else {
-        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.9f)
-    }
-    val resolvedIconColor = if (selected) {
-        baseContentColor
-    } else {
-        defaultIconColor
-    }
-    val effectiveIconColor = iconTint ?: resolvedIconColor
-    val effectiveTitleColor = if (selected) baseContentColor else titleColor
-    val effectiveSubtitleColor =
-        if (selected) baseContentColor.copy(alpha = 0.7f) else subtitleColor
-
-    ListItem(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .background(containerColor)
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        liquidGlassHighlightColor(),
-                        Color.Transparent,
-                        Color.Transparent
-                    ),
-                    startY = 0f,
-                    endY = 96f
-                )
-            )
-            .border(1.dp, liquidGlassBorderColor(), shape)
-            .clickable(
-                enabled = enabled,
-                interactionSource = interactionSource,
-                indication = LocalIndication.current,
-                onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
-                    onClick()
-                }
-            ),
-        verticalAlignment = Alignment.CenterVertically,
-        leadingContent = {
-            Box(
-                modifier = Modifier
-                    .size(28.dp)
-                    .then(leadingModifier),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = effectiveIconColor,
-                    modifier = Modifier.size(iconSize)
-                )
-            }
-        },
-        trailingContent = {
-            if (trailingContent != null) {
-                trailingContent()
-            } else {
-                TrailingArrowIcon()
-            }
-        },
-        overlineContent = null,
-        supportingContent = null,
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-        elevation = ListItemDefaults.elevation(),
-        content = {
-            Column {
+    LiquidGlass(
+        modifier.fillMaxWidth(),
+        RoundedCornerShape(
+            topStart = corners.topRadius, topEnd = corners.topRadius,
+            bottomStart = corners.bottomRadius, bottomEnd = corners.bottomRadius
+        ),
+        container
+    ) {
+        BasicComponent(
+            title = title,
+            summary = subtitle,
+            titleColor = BasicComponentColors(foreground, foreground.copy(alpha = 0.38f)),
+            summaryColor = BasicComponentColors(subtitleColor, subtitleColor.copy(alpha = 0.38f)),
+            enabled = enabled,
+            onClick = onClick,
+            startAction = {
                 Box(
-                    modifier = Modifier.padding(
-                        top = dynamicInternalPadding,
-                        bottom = if (subtitle == null) dynamicInternalPadding else 0.dp
-                    )
+                    Modifier.size(32.dp).then(leadingModifier),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text(
-                            text = title,
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Normal
-                            ),
-                            color = effectiveTitleColor.copy(alpha = contentAlpha)
-                        )
-                        badgeText?.let {
-                            Badge { Text(it) }
-                        }
-                    }
-                }
-                subtitle?.let {
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = it,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = effectiveSubtitleColor.copy(alpha = contentAlpha),
-                        modifier = Modifier.padding(bottom = dynamicInternalPadding)
+                    Icon(
+                        imageVector = icon, contentDescription = null,
+                        tint = iconTint ?: if (selected) colors.primary else colors.onSurfaceVariant,
+                        modifier = Modifier.size(iconSize)
                     )
                 }
+            },
+            endActions = {
+                if (badgeText != null) Badge { Text(badgeText) }
+                if (trailingContent != null) trailingContent() else TrailingArrowIcon()
             }
-        },
-    )
+        )
+    }
 }

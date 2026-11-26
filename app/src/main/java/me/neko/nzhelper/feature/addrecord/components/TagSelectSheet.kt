@@ -1,363 +1,263 @@
 package me.neko.nzhelper.feature.addrecord.components
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.AutoAwesome
-import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.InputChip
-import androidx.compose.material3.InputChipDefaults
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import me.neko.nzhelper.core.datastore.TagSettings
+import me.neko.nzhelper.core.model.SessionMode
 import me.neko.nzhelper.core.model.TagDef
-import me.neko.nzhelper.ui.component.form.SectionLabel
+import me.neko.nzhelper.ui.component.dialog.ConfirmDialog
+import me.neko.nzhelper.ui.component.tag.TagChip
 import me.neko.nzhelper.ui.theme.TagColors
 import me.neko.nzhelper.ui.theme.TagIcons
+import me.neko.nzhelper.ui.theme.glassOverlayColor
+import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.Button
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextField
+import top.yukonga.miuix.kmp.window.WindowBottomSheet
 
-@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun TagSelectCard(
     title: String,
-    loadTags: () -> List<TagDef>,
+    groupId: String,
+    mode: SessionMode,
     selectedIds: Set<String>,
     onSelectionChange: (Set<String>) -> Unit,
     singleSelect: Boolean = false,
-    addLabel: String? = null,
-    onAddNew: ((String) -> TagDef?)? = null,
     autoMatchLabel: String? = null,
     onAutoMatch: ((Set<String>) -> Set<String>)? = null
 ) {
-    var showSheet by remember { mutableStateOf(false) }
-    var tags by remember { mutableStateOf(loadTags()) }
+    val context = LocalContext.current
+    fun loadTags() = TagSettings.getTags(context).filter { it.groupId == groupId && it.appliesTo(mode) }
 
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            SectionLabel(title)
-            Box(
-                modifier = Modifier
-                    .size(26.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                    .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
-                    .clickable { showSheet = true },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Add,
-                    contentDescription = "选择$title",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(14.dp)
-                )
-            }
-        }
-        if (selectedIds.isEmpty()) {
-            Text(
-                text = "未选择",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        } else {
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                tags.filter { it.id in selectedIds }.forEach { tag ->
-                    InputChip(
-                        selected = true,
-                        onClick = {},
-                        label = { Text(tag.name) },
-                        trailingIcon = {
-                            Icon(
-                                imageVector = Icons.Outlined.Close,
-                                contentDescription = "移除${tag.name}",
-                                modifier = Modifier
-                                    .size(InputChipDefaults.IconSize)
-                                    .clip(CircleShape)
-                                    .clickable {
-                                        onSelectionChange(selectedIds - tag.id)
-                                    }
-                            )
-                        }
-                    )
+    var tags by remember(groupId, mode) { mutableStateOf(loadTags()) }
+    var sheet by remember(groupId, mode) { mutableStateOf<TagSheetEntry?>(null) }
+    val selected = tags.filter { it.id in selectedIds }
+
+    Column {
+        BasicComponent(
+            title = title,
+            summary = if (selected.isEmpty()) "未选择" else null,
+            insideMargin = PaddingValues(0.dp),
+            onClick = {
+                tags = loadTags()
+                sheet = TagSheetEntry.Picker
+            },
+            endActions = {
+                IconButton(onClick = {
+                    tags = loadTags()
+                    sheet = TagSheetEntry.NewTag
+                }) {
+                    Icon(Icons.Outlined.Add, contentDescription = "新建${title}标签")
                 }
+            }
+        )
+        if (selected.isNotEmpty()) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                selected.forEach { TagChip(name = it.name, color = it.color, icon = it.icon) }
             }
         }
     }
 
-    if (showSheet) {
-        TagSelectSheet(
+    sheet?.let { entry ->
+        GroupTagSheet(
             title = title,
+            entry = entry,
             tags = tags,
             selectedIds = selectedIds,
             singleSelect = singleSelect,
-            addLabel = addLabel,
-            onAddNew = onAddNew,
-            onTagAdded = { newTag -> tags = (tags + newTag).distinctBy { it.id } },
             autoMatchLabel = autoMatchLabel,
             onAutoMatch = onAutoMatch,
+            onSaveTag = { original, name ->
+                val existing = TagSettings.findTagByName(context, name)
+                if (existing != null && existing.id != original?.id) {
+                    null
+                } else if (original == null) {
+                    TagSettings.ensureRecordGroup(context, groupId, title)
+                    val group = TagSettings.getGroup(context, groupId)
+                    TagSettings.addTag(
+                        context, name, groupId, group?.icon ?: "hash", group?.color ?: "slate",
+                        modeKeys = group?.modeKeys.orEmpty()
+                    )?.also { tags = loadTags() }
+                } else {
+                    TagSettings.updateTag(context, original.id, name = name)
+                    tags = loadTags()
+                    tags.firstOrNull { it.id == original.id }
+                }
+            },
+            onDeleteTag = { tag ->
+                TagSettings.deleteTag(context, tag.id)
+                tags = loadTags()
+                if (tag.id in selectedIds) onSelectionChange(selectedIds - tag.id)
+            },
             onConfirm = {
                 onSelectionChange(it)
-                showSheet = false
+                sheet = null
             },
-            onDismiss = { showSheet = false }
+            onDismiss = { sheet = null }
         )
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+private enum class TagSheetEntry { Picker, NewTag }
+
 @Composable
-internal fun TagSelectSheet(
+private fun GroupTagSheet(
     title: String,
+    entry: TagSheetEntry,
     tags: List<TagDef>,
     selectedIds: Set<String>,
+    singleSelect: Boolean,
+    autoMatchLabel: String?,
+    onAutoMatch: ((Set<String>) -> Set<String>)?,
+    onSaveTag: (TagDef?, String) -> TagDef?,
+    onDeleteTag: (TagDef) -> Unit,
     onConfirm: (Set<String>) -> Unit,
-    onDismiss: () -> Unit,
-    singleSelect: Boolean = false,
-    addLabel: String? = null,
-    onAddNew: ((String) -> TagDef?)? = null,
-    onTagAdded: (TagDef) -> Unit = {},
-    autoMatchLabel: String? = null,
-    onAutoMatch: ((Set<String>) -> Set<String>)? = null
+    onDismiss: () -> Unit
 ) {
-    var selection by remember(selectedIds) { mutableStateOf(selectedIds) }
-    var showAddDialog by remember { mutableStateOf(false) }
+    var selection by remember { mutableStateOf(selectedIds) }
+    var editing by remember { mutableStateOf(entry == TagSheetEntry.NewTag) }
+    var editorTag by remember { mutableStateOf<TagDef?>(null) }
+    var pendingDelete by remember { mutableStateOf<TagDef?>(null) }
+    var name by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf(false) }
+    val initiallySelected = remember { selectedIds }
 
-    @Suppress("DEPRECATION")
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    fun closeEditor() {
+        if (entry == TagSheetEntry.NewTag) onDismiss() else editing = false
+    }
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shape = MaterialTheme.shapes.extraLarge
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleLarge
-            )
-            Spacer(Modifier.height(8.dp))
+    fun edit(tag: TagDef?) {
+        editorTag = tag
+        name = tag?.name.orEmpty()
+        error = false
+        editing = true
+    }
 
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 380.dp),
-                contentPadding = PaddingValues(horizontal = 24.dp)
-            ) {
-                items(tags, key = { it.id }) { tag ->
-                    val selected = tag.id in selection
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(MaterialTheme.shapes.medium)
-                            .clickable {
-                                selection = if (selected) {
-                                    selection - tag.id
-                                } else if (singleSelect) {
-                                    setOf(tag.id)
-                                } else {
-                                    selection + tag.id
-                                }
-                            }
-                            .padding(horizontal = 8.dp, vertical = 14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Icon(
-                            imageVector = TagIcons.iconFor(tag.icon),
-                            contentDescription = null,
-                            tint = TagColors.contentColor(tag.color),
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Text(
-                            text = tag.name,
-                            style = MaterialTheme.typography.bodyLarge,
-                            modifier = Modifier.weight(1f)
-                        )
-                        if (selected) {
-                            Icon(
-                                imageVector = Icons.Outlined.CheckCircle,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        } else {
-                            Box(
-                                modifier = Modifier
-                                    .size(20.dp)
-                                    .border(
-                                        2.dp,
-                                        MaterialTheme.colorScheme.outlineVariant,
-                                        CircleShape
-                                    )
-                            )
-                        }
-                    }
-                }
-                if (addLabel != null && onAddNew != null) {
-                    item {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(MaterialTheme.shapes.medium)
-                                .clickable { showAddDialog = true }
-                                .padding(horizontal = 8.dp, vertical = 14.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.Add,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Text(
-                                text = addLabel,
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
-                }
-            }
-
-            if (autoMatchLabel != null && onAutoMatch != null) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    TextButton(
-                        onClick = { selection = onAutoMatch(selection) },
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
-                    ) {
-                        Icon(
-                            Icons.Outlined.AutoAwesome,
-                            contentDescription = null,
-                            modifier = Modifier.size(14.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(Modifier.width(4.dp))
-                        Text(
-                            autoMatchLabel,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-            }
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                OutlinedButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.weight(1f),
-                    shape = MaterialTheme.shapes.large
-                ) {
-                    Text("取消")
-                }
-                Button(
-                    onClick = { onConfirm(selection) },
-                    modifier = Modifier.weight(1f),
-                    shape = MaterialTheme.shapes.large
-                ) {
-                    Text("确定")
-                }
-            }
-            Spacer(Modifier.height(16.dp))
+    fun saveTag() {
+        if (name.isBlank()) return
+        val saved = onSaveTag(editorTag, name.trim())
+        when {
+            saved == null -> error = true
+            editorTag == null -> onConfirm(if (singleSelect) setOf(saved.id) else selection + saved.id)
+            else -> closeEditor()
         }
     }
 
-    if (showAddDialog) {
-        var nameInput by remember { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { showAddDialog = false },
-            title = { Text(addLabel ?: "新增") },
-            text = {
-                OutlinedTextField(
-                    value = nameInput,
-                    onValueChange = { nameInput = it.take(20) },
-                    label = { Text("名称") },
-                    placeholder = { Text("输入名称") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        val name = nameInput.trim()
-                        if (name.isNotEmpty()) {
-                            val newTag = onAddNew?.invoke(name)
-                            if (newTag != null) {
-                                selection = selection + newTag.id
-                                onTagAdded(newTag)
-                            }
-                        }
-                        showAddDialog = false
+    WindowBottomSheet(
+        show = true,
+        title = if (!editing) title else if (editorTag == null) "新建${title}标签" else "编辑${title}标签",
+        backgroundColor = glassOverlayColor(),
+        onDismissRequest = { if (editing) closeEditor() else onDismiss() }
+    ) {
+        Column(Modifier.fillMaxWidth().imePadding(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            if (editing) {
+                TextField(
+                    value = name,
+                    onValueChange = {
+                        name = it
+                        error = false
                     },
-                    enabled = nameInput.isNotBlank()
-                ) {
-                    Text("添加")
+                    label = "标签名称",
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { saveTag() }),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (error) {
+                    Text("这个标签名称已存在", color = MaterialTheme.colorScheme.error)
                 }
-            },
-            dismissButton = {
-                TextButton(onClick = { showAddDialog = false }) {
-                    Text("取消")
+                editorTag?.let { tag ->
+                    BasicComponent(
+                        title = "删除标签",
+                        onClick = { pendingDelete = tag }
+                    )
                 }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Button(onClick = ::closeEditor, modifier = Modifier.weight(1f)) {
+                        Text(if (entry == TagSheetEntry.NewTag) "取消" else "返回")
+                    }
+                    Button(
+                        onClick = ::saveTag,
+                        enabled = name.isNotBlank(),
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColorsPrimary()
+                    ) { Text(if (editorTag == null) "添加并选中" else "保存") }
+                }
+            } else {
+                LazyColumn(Modifier.heightIn(max = 320.dp)) {
+                    item {
+                        BasicComponent(
+                            title = "新建${title}标签",
+                            startAction = { Icon(Icons.Outlined.Add, null, tint = MaterialTheme.colorScheme.primary) },
+                            onClick = { edit(null) }
+                        )
+                    }
+                    items(tags.sortedBy { it.id !in initiallySelected }, key = { it.id }) { tag ->
+                        val checked = tag.id in selection
+                        BasicComponent(
+                            title = tag.name,
+                            startAction = {
+                                Icon(TagIcons.iconFor(tag.icon), null, tint = TagColors.contentColor(tag.color))
+                            },
+                            onClick = {
+                                selection = when {
+                                    checked -> selection - tag.id
+                                    singleSelect -> setOf(tag.id)
+                                    else -> selection + tag.id
+                                }
+                            },
+                            endActions = {
+                                if (checked) Icon(Icons.Outlined.Check, "已选中", tint = MaterialTheme.colorScheme.primary)
+                                IconButton(onClick = { edit(tag) }) {
+                                    Icon(Icons.Outlined.Edit, "编辑${tag.name}")
+                                }
+                            }
+                        )
+                    }
+                }
+                if (autoMatchLabel != null && onAutoMatch != null) {
+                    BasicComponent(title = autoMatchLabel, onClick = { selection = onAutoMatch(selection) })
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Button(onClick = onDismiss, modifier = Modifier.weight(1f)) { Text("取消") }
+                    Button(
+                        onClick = { onConfirm(selection.intersect(tags.map { it.id }.toSet())) },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColorsPrimary()
+                    ) { Text("确定") }
+                }
+            }
+        }
+    }
+    pendingDelete?.let { tag ->
+        ConfirmDialog(
+            title = "删除标签",
+            message = "删除「${tag.name}」后，历史记录仍保留原标签。",
+            confirmText = "删除",
+            onDismiss = { pendingDelete = null },
+            onConfirm = {
+                onDeleteTag(tag)
+                selection -= tag.id
+                pendingDelete = null
+                editing = false
             }
         )
     }

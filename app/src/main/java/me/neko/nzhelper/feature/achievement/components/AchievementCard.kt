@@ -14,7 +14,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material3.Card
+import me.neko.nzhelper.ui.component.miuix.GlassCard
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -47,11 +47,11 @@ fun AchievementCard(
     )
 
     if (onClick == null) {
-        Card(modifier = cardModifier, shape = shape, colors = colors) {
+        GlassCard(modifier = cardModifier, shape = shape, colors = colors) {
             AchievementCardContent(progress)
         }
     } else {
-        Card(
+        GlassCard(
             onClick = {
                 haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
                 onClick()
